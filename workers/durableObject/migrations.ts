@@ -157,15 +157,32 @@ export const mailboxMigrations: Migration[] = [
             ALTER TABLE emails ADD COLUMN bcc TEXT;
         `),
 	},
-	{
-		// No txn() wrapper: Cloudflare's DO runtime requires state.storage.transactionSync()
-		// instead of SQL-level BEGIN TRANSACTION. These are idempotent CREATE INDEX IF NOT EXISTS
-		// statements so they're safe to run without a transaction.
-		name: "8_add_folder_date_indexes",
-		sql: `
-            CREATE INDEX IF NOT EXISTS idx_emails_folder_id ON emails(folder_id);
-            CREATE INDEX IF NOT EXISTS idx_emails_date ON emails(date);
-            CREATE INDEX IF NOT EXISTS idx_emails_folder_date ON emails(folder_id, date DESC);
-        `,
-	},
-];
+		{
+			// No txn() wrapper: Cloudflare's DO runtime requires state.storage.transactionSync()
+			// instead of SQL-level BEGIN TRANSACTION. These are idempotent CREATE INDEX IF NOT EXISTS
+			// statements so they're safe to run without a transaction.
+			name: "8_add_folder_date_indexes",
+			sql: `
+	            CREATE INDEX IF NOT EXISTS idx_emails_folder_id ON emails(folder_id);
+	            CREATE INDEX IF NOT EXISTS idx_emails_date ON emails(date);
+	            CREATE INDEX IF NOT EXISTS idx_emails_folder_date ON emails(folder_id, date DESC);
+	        `,
+		},
+		{
+			name: "9_add_attachment_chunks",
+			sql: `
+				ALTER TABLE attachments ADD COLUMN chunk_count INTEGER NOT NULL DEFAULT 1;
+
+				CREATE TABLE IF NOT EXISTS attachment_chunks (
+					attachment_id TEXT NOT NULL,
+					chunk_index INTEGER NOT NULL,
+					data BLOB NOT NULL,
+					created_at INTEGER NOT NULL DEFAULT (strftime('%s', 'now')),
+					PRIMARY KEY (attachment_id, chunk_index),
+					FOREIGN KEY(attachment_id) REFERENCES attachments(id) ON DELETE CASCADE
+				);
+
+				CREATE INDEX IF NOT EXISTS idx_attachment_chunks_id ON attachment_chunks(attachment_id);
+			`,
+		},
+	];

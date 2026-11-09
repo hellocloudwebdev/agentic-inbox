@@ -4,7 +4,7 @@
 
 import type { Context } from "hono";
 import { sendEmail } from "../email-sender";
-import { storeAttachments } from "../lib/attachments";
+import { prepareAttachments } from "../lib/attachments";
 import type { EmailFull } from "../lib/schemas";
 import {
 	validateSender,
@@ -53,7 +53,7 @@ export async function handleReplyEmail(c: AppContext) {
 		return c.json({ error: rateLimitError }, 429);
 	}
 
-	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments);
+	const attachmentData = prepareAttachments(messageId, attachments);
 
 	await stub.createEmail(
 		Folders.SENT,
@@ -143,7 +143,7 @@ export async function handleForwardEmail(c: AppContext) {
 		return c.json({ error: rateLimitError }, 429);
 	}
 
-	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments);
+	const attachmentData = prepareAttachments(messageId, attachments);
 
 	await stub.createEmail(
 		Folders.SENT,

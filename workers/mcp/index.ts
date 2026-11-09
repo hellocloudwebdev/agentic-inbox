@@ -22,6 +22,8 @@ import {
 } from "../lib/tools";
 import { Folders, FOLDER_TOOL_DESCRIPTION, MOVE_FOLDER_TOOL_DESCRIPTION } from "../../shared/folders";
 import type { Env } from "../types";
+import { getNeonDb, ensureNeonSchema } from "../db/neon-client";
+import { MailboxRepository, normalizeMailboxId } from "../db/repositories/mailbox-repository";
 
 /** Wrap a plain result object into MCP content format. */
 function mcpText(result: unknown) {
@@ -67,22 +69,28 @@ export class EmailMCP extends McpAgent<Env> {
 		version: "1.0.0",
 	});
 
-	async init() {
-		const env = this.env;
+		async init() {
+			const env = this.env;
 
-		/**
-		 * Verify a mailbox exists in R2 before operating on it.
-		 * Returns an MCP error response if the mailbox is not found, or null if valid.
-		 */
-		const verifyMailbox = async (mailboxId: string) => {
-			const obj = await env.BUCKET.head(`mailboxes/${mailboxId}.json`);
-			if (!obj) {
-				return mcpError(`Mailbox "${mailboxId}" not found. Use list_mailboxes to see available mailboxes.`);
-			}
-			return null;
-		};
+			/**
+			 * Verify a mailbox exists in Neon before operating on it.
+			 * Returns an MCP error response if the mailbox is not found, or null if valid.
+			 */
+			const verifyMailbox = async (mailboxId: string) => {
+				try {
+					await ensureNeonSchema(env);
+					const repo = new MailboxRepository(getNeonDb(env));
+					const box = await repo.getMailbox(normalizeMailboxId(mailboxId));
+					if (!box) {
+						return mcpError(`Mailbox "${mailboxId}" not found. Use list_mailboxes to see available mailboxes.`);
+					}
+					return null;
+				} catch (err: any) {
+					return mcpError(`Database error verifying mailbox "${mailboxId}": ${err?.message || String(err)}`);
+				}
+			};
 
-		// ── list_mailboxes ─────────────────────────────────────────
+			// ── list_mailboxes ─────────────────────────────────────────
 		this.server.tool(
 			"list_mailboxes",
 			"List all available mailboxes",

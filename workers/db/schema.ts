@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, blob, primaryKey } from "drizzle-orm/sqlite-core";
 
 export const folders = sqliteTable("folders", {
 	id: text("id").primaryKey(),
@@ -39,6 +39,22 @@ export const attachments = sqliteTable("attachments", {
 	filename: text("filename").notNull(),
 	mimetype: text("mimetype").notNull(),
 	size: integer("size").notNull(),
+	chunk_count: integer("chunk_count").notNull().default(1),
 	content_id: text("content_id"),
 	disposition: text("disposition"),
 });
+
+export const attachmentChunks = sqliteTable(
+	"attachment_chunks",
+	{
+		attachment_id: text("attachment_id")
+			.notNull()
+			.references(() => attachments.id, { onDelete: "cascade" }),
+		chunk_index: integer("chunk_index").notNull(),
+		data: blob("data", { mode: "buffer" }).notNull(),
+		created_at: integer("created_at"),
+	},
+	(table) => [
+		primaryKey({ columns: [table.attachment_id, table.chunk_index] }),
+	],
+);

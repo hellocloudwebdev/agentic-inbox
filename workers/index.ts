@@ -7,7 +7,7 @@ import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
 import { z } from "zod";
 import { sendEmail } from "./email-sender";
-import { storeAttachments, type StoredAttachment } from "./lib/attachments";
+import { prepareAttachments, attachmentStorage, type StoredAttachment } from "./lib/attachments";
 import {
 	validateSender,
 	SenderValidationError,
@@ -20,6 +20,13 @@ import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
+import { getNeonDb, ensureNeonSchema } from "./db/neon-client";
+import {
+	MailboxRepository,
+	DuplicateMailboxError,
+	MailboxNotFoundError,
+	normalizeMailboxId,
+} from "./db/repositories/mailbox-repository";
 
 type AppContext = Context<MailboxContext>;
 
@@ -65,19 +72,15 @@ function boolQuery(c: AppContext, key: string): boolean | undefined {
 
 // -- App & middleware -----------------------------------------------
 
+const ALLOWED_DEV_ORIGINS = new Set(["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8787", "http://127.0.0.1:8787"]);
+
 const app = new Hono<MailboxContext>();
 app.use("/api/*", cors({
 	origin: (origin) => {
-		// Same-origin requests have no Origin header — allow them.
-		if (!origin) return origin;
-		// In development, allow localhost for Vite dev server.
-		try {
-			const url = new URL(origin);
-			if (url.hostname === "localhost" || url.hostname === "127.0.0.1") return origin;
-		} catch { /* invalid origin */ }
-		// Block all other cross-origin requests. The app is served from the
-		// same origin as the API, so legitimate browser requests never send
-		// an Origin header. Returning undefined omits Access-Control-Allow-Origin.
+		// Same-origin requests omit the Origin header. Cross-origin requests
+		// are only allowed from the local Vite dev server; production traffic
+		// is same-origin so no Access-Control-Allow-Origin header is needed.
+		if (ALLOWED_DEV_ORIGINS.has(origin)) return origin;
 		return undefined;
 	},
 }));
@@ -95,8 +98,10 @@ app.get("/api/v1/config", (c) => {
 // -- Mailboxes ------------------------------------------------------
 
 app.get("/api/v1/mailboxes", async (c) => {
-	const allMailboxes = await listMailboxes(c.env.BUCKET);
-	return c.json(allMailboxes.map((m) => ({ ...m, name: m.id })));
+	await ensureNeonSchema(c.env);
+	const repo = new MailboxRepository(getNeonDb(c.env));
+	const allMailboxes = await repo.listMailboxes();
+	return c.json(allMailboxes.map((m) => ({ id: m.id, email: m.email, name: m.name || m.id, settings: m.settings })));
 });
 
 app.post("/api/v1/mailboxes", async (c) => {
@@ -106,37 +111,57 @@ app.post("/api/v1/mailboxes", async (c) => {
 	if (allowedAddresses.length > 0 && !allowedAddresses.map((a) => a.toLowerCase()).includes(email)) {
 		return c.json({ error: "Mailbox creation is restricted to configured EMAIL_ADDRESSES" }, 403);
 	}
-	const key = `mailboxes/${email}.json`;
-	if (await c.env.BUCKET.head(key)) return c.json({ error: "Mailbox already exists" }, 409);
-	const defaultSettings = { fromName: name, forwarding: { enabled: false, email: "" }, signature: { enabled: false, text: "" }, autoReply: { enabled: false, subject: "", message: "" } };
-	const finalSettings = { ...defaultSettings, ...settings };
-	await c.env.BUCKET.put(key, JSON.stringify(finalSettings));
-	const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(email));
-	await stub.getFolders();
-	return c.json({ id: email, email, name, settings: finalSettings }, 201);
+	await ensureNeonSchema(c.env);
+	const repo = new MailboxRepository(getNeonDb(c.env));
+	try {
+		const created = await repo.createMailbox({
+			email,
+			name,
+			settings,
+		});
+		const stub = c.env.MAILBOX.get(c.env.MAILBOX.idFromName(created.id));
+		await stub.getFolders();
+		return c.json({ id: created.id, email: created.email, name: created.name, settings: created.settings }, 201);
+	} catch (err) {
+		if (err instanceof DuplicateMailboxError) {
+			return c.json({ error: "Mailbox already exists" }, 409);
+		}
+		throw err;
+	}
 });
 
 app.get("/api/v1/mailboxes/:mailboxId", async (c) => {
 	const mailboxId = c.req.param("mailboxId")!;
-	const obj = await c.env.BUCKET.get(`mailboxes/${mailboxId}.json`);
-	if (!obj) return c.json({ error: "Not found" }, 404);
-	return c.json({ id: mailboxId, name: mailboxId, email: mailboxId, settings: await obj.json() });
+	await ensureNeonSchema(c.env);
+	const repo = new MailboxRepository(getNeonDb(c.env));
+	const box = await repo.getMailbox(mailboxId);
+	if (!box) return c.json({ error: "Not found" }, 404);
+	return c.json({ id: box.id, name: box.name || box.id, email: box.email, settings: box.settings });
 });
 
 app.put("/api/v1/mailboxes/:mailboxId", async (c) => {
 	const mailboxId = c.req.param("mailboxId")!;
 	const { settings } = (await c.req.json()) as { settings: Record<string, unknown> };
-	const key = `mailboxes/${mailboxId}.json`;
-	if (!(await c.env.BUCKET.head(key))) return c.json({ error: "Not found" }, 404);
-	await c.env.BUCKET.put(key, JSON.stringify(settings));
-	return c.json({ id: mailboxId, name: mailboxId, email: mailboxId, settings });
+	await ensureNeonSchema(c.env);
+	const repo = new MailboxRepository(getNeonDb(c.env));
+	try {
+		const updatedSettings = await repo.updateMailboxSettings(mailboxId, settings);
+		const box = await repo.getMailbox(mailboxId);
+		return c.json({ id: box?.id || mailboxId, name: box?.name || mailboxId, email: box?.email || mailboxId, settings: updatedSettings });
+	} catch (err) {
+		if (err instanceof MailboxNotFoundError) {
+			return c.json({ error: "Not found" }, 404);
+		}
+		throw err;
+	}
 });
 
 app.delete("/api/v1/mailboxes/:mailboxId", async (c) => {
 	const mailboxId = c.req.param("mailboxId")!;
-	const key = `mailboxes/${mailboxId}.json`;
-	if (!(await c.env.BUCKET.head(key))) return c.json({ error: "Not found" }, 404);
-	await c.env.BUCKET.delete(key); // TODO: also delete DO data and R2 attachment blobs
+	await ensureNeonSchema(c.env);
+	const repo = new MailboxRepository(getNeonDb(c.env));
+	const deleted = await repo.deleteMailbox(mailboxId);
+	if (!deleted) return c.json({ error: "Not found" }, 404);
 	return c.body(null, 204);
 });
 
@@ -180,11 +205,11 @@ app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 
 	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
 	const stub = c.var.mailboxStub;
-	const rateLimitError = await (stub as any).checkSendRateLimit();
-	if (rateLimitError) return c.json({ error: rateLimitError }, 429);
-	const attachmentData = await storeAttachments(c.env.BUCKET, messageId, attachments);
+		const rateLimitError = await (stub as any).checkSendRateLimit();
+		if (rateLimitError) return c.json({ error: rateLimitError }, 429);
+		const attachmentData = prepareAttachments(messageId, attachments);
 
-	await stub.createEmail(Folders.SENT, {
+		await stub.createEmail(Folders.SENT, {
 		id: messageId, subject, sender: fromEmail, recipient: toStr,
 		cc: cc ? (Array.isArray(cc) ? cc.join(", ") : cc).toLowerCase() : null,
 		bcc: bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc).toLowerCase() : null,
@@ -245,7 +270,6 @@ app.delete("/api/v1/mailboxes/:mailboxId/emails/:id", async (c: AppContext) => {
 	const id = c.req.param("id")!;
 	const attachments = await c.var.mailboxStub.deleteEmail(id);
 	if (attachments === null) return c.json({ error: "Not found" }, 404);
-	if (attachments.length > 0) await c.env.BUCKET.delete(attachments.map((att: any) => `attachments/${id}/${att.id}/${att.filename}`));
 	return c.body(null, 204);
 });
 
@@ -314,15 +338,25 @@ app.get("/api/v1/mailboxes/:mailboxId/search", async (c: AppContext) => {
 app.get("/api/v1/mailboxes/:mailboxId/emails/:emailId/attachments/:attachmentId", async (c: AppContext) => {
 	const emailId = c.req.param("emailId")!;
 	const attachmentId = c.req.param("attachmentId")!;
-	const attachment = await c.var.mailboxStub.getAttachment(attachmentId);
-	if (!attachment) return c.json({ error: "Attachment not found" }, 404);
-	const obj = await c.env.BUCKET.get(`attachments/${emailId}/${attachmentId}/${attachment.filename}`);
-	if (!obj) return c.json({ error: "Attachment file not found" }, 404);
-	const headers = new Headers();
-	headers.set("Content-Type", attachment.mimetype);
-	const sanitized = attachment.filename.replace(/[\x00-\x1f"\\]/g, "_");
-	headers.set("Content-Disposition", `attachment; filename="${sanitized}"; filename*=UTF-8''${encodeURIComponent(attachment.filename)}`);
-	return new Response(obj.body, { headers });
+	const stub = c.var.mailboxStub;
+	const attachment = await stub.getAttachment(attachmentId);
+	if (!attachment || attachment.email_id !== emailId) {
+		return c.json({ error: "Attachment not found" }, 404);
+	}
+	try {
+		const { metadata, stream } = await attachmentStorage.readStream(stub, attachmentId);
+		const headers = new Headers();
+		headers.set("Content-Type", metadata.mimetype);
+		headers.set("Content-Length", String(metadata.size));
+		const sanitized = metadata.filename.replace(/[\x00-\x1f"\\]/g, "_");
+		headers.set(
+			"Content-Disposition",
+			`attachment; filename="${sanitized}"; filename*=UTF-8''${encodeURIComponent(metadata.filename)}`,
+		);
+		return new Response(stream, { headers });
+	} catch (err: any) {
+		return c.json({ error: err?.message || "Attachment file not found" }, 404);
+	}
 });
 
 // -- Receive inbound email ------------------------------------------
@@ -363,22 +397,27 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 	} else { mailboxId = allRecipients[0]; }
 	if (!mailboxId) throw new Error("received email with no valid recipient address");
 
-	const messageId = crypto.randomUUID();
-	if (!(await env.BUCKET.head(`mailboxes/${mailboxId}.json`))) { console.log(`Ignoring email for ${mailboxId}: mailbox does not exist`); return; }
-
-	const stub = env.MAILBOX.get(env.MAILBOX.idFromName(mailboxId));
-
-	const attachmentData: StoredAttachment[] = [];
-	if (parsedEmail.attachments) {
-		for (const att of parsedEmail.attachments) {
-			const attId = crypto.randomUUID();
-			const filename = (att.filename || "untitled").replace(/[\/\\:*?"<>|\x00-\x1f]/g, "_");
-			await env.BUCKET.put(`attachments/${messageId}/${attId}/${filename}`, att.content);
-			attachmentData.push({ id: attId, email_id: messageId, filename, mimetype: att.mimeType,
-				size: typeof att.content === "string" ? att.content.length : att.content.byteLength,
-				content_id: att.contentId || null, disposition: att.disposition || "attachment" });
+		const messageId = crypto.randomUUID();
+		const normalizedMailboxId = normalizeMailboxId(mailboxId);
+		await ensureNeonSchema(env);
+		const repo = new MailboxRepository(getNeonDb(env));
+		const existingMailbox = await repo.getMailbox(normalizedMailboxId);
+		if (!existingMailbox) {
+			console.log(`Ignoring email for ${mailboxId}: mailbox does not exist`);
+			return;
 		}
-	}
+
+		const stub = env.MAILBOX.get(env.MAILBOX.idFromName(normalizedMailboxId));
+
+		const inboundAttachments = (parsedEmail.attachments || []).map((att) => ({
+			content: att.content,
+			filename: att.filename,
+			type: att.mimeType,
+			disposition: att.disposition || "attachment",
+			contentId: att.contentId,
+			isBase64: false,
+		}));
+		const attachmentData = prepareAttachments(messageId, inboundAttachments);
 
 	const extractMsgId = (s: string) => { const m = s.match(/<([^>]+)>/); return m ? m[1] : s.trim().split(/\s+/)[0]; };
 	const inReplyTo = parsedEmail.inReplyTo ? extractMsgId(parsedEmail.inReplyTo) : null;

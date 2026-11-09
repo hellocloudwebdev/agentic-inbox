@@ -89,14 +89,16 @@ interface EmailData {
 	raw_headers?: string | null;
 }
 
-interface AttachmentData {
+export interface AttachmentData {
 	id: string;
 	email_id: string;
 	filename: string;
 	mimetype: string;
 	size: number;
+	chunk_count?: number;
 	content_id?: string | null;
 	disposition?: string | null;
+	chunks?: Uint8Array[];
 }
 
 export class MailboxDO extends DurableObject<Env> {
@@ -552,10 +554,28 @@ export class MailboxDO extends DurableObject<Env> {
 			.where(eq(schema.attachments.email_id, id))
 			.all();
 
-		this.db
-			.delete(schema.emails)
-			.where(eq(schema.emails.id, id))
-			.run();
+		const run = () => {
+			for (const att of emailAttachments) {
+				this.ctx.storage.sql.exec(
+					"DELETE FROM attachment_chunks WHERE attachment_id = ?",
+					att.id,
+				);
+			}
+			this.db
+				.delete(schema.attachments)
+				.where(eq(schema.attachments.email_id, id))
+				.run();
+			this.db
+				.delete(schema.emails)
+				.where(eq(schema.emails.id, id))
+				.run();
+		};
+
+		if (this.ctx.storage.transactionSync) {
+			this.ctx.storage.transactionSync(run);
+		} else {
+			run();
+		}
 
 		return emailAttachments;
 	}
@@ -568,6 +588,206 @@ export class MailboxDO extends DurableObject<Env> {
 				.where(eq(schema.attachments.id, id))
 				.get() ?? null
 		);
+	}
+
+	async getAttachmentChunk(attachmentId: string, chunkIndex: number): Promise<Uint8Array | null> {
+		const rows = [
+			...this.ctx.storage.sql.exec(
+				"SELECT data FROM attachment_chunks WHERE attachment_id = ? AND chunk_index = ?",
+				attachmentId,
+				chunkIndex,
+			),
+		] as any[];
+
+		if (!rows.length) return null;
+		const data = rows[0].data;
+		if (data instanceof Uint8Array) return data;
+		if (data instanceof ArrayBuffer) return new Uint8Array(data);
+		if (ArrayBuffer.isView(data)) return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+		return new Uint8Array(data);
+	}
+
+	async getAttachmentContent(attachmentId: string): Promise<Uint8Array> {
+		const att = await this.getAttachment(attachmentId);
+		if (!att) {
+			throw new Error(`Attachment not found: ${attachmentId}`);
+		}
+
+		if (att.size === 0) {
+			return new Uint8Array(0);
+		}
+
+		const rows = [
+			...this.ctx.storage.sql.exec(
+				"SELECT chunk_index, data FROM attachment_chunks WHERE attachment_id = ? ORDER BY chunk_index ASC",
+				attachmentId,
+			),
+		] as any[];
+
+		if (rows.length !== att.chunk_count) {
+			throw new Error(
+				`Attachment ${attachmentId} corrupted: expected ${att.chunk_count} chunks, found ${rows.length}`,
+			);
+		}
+
+		let totalSize = 0;
+		const chunks: Uint8Array[] = [];
+		for (let i = 0; i < rows.length; i++) {
+			if (rows[i].chunk_index !== i) {
+				throw new Error(
+					`Attachment ${attachmentId} missing chunk at index ${i}`,
+				);
+			}
+			const raw = rows[i].data;
+			const bytes = raw instanceof Uint8Array ? raw : new Uint8Array(raw);
+			chunks.push(bytes);
+			totalSize += bytes.byteLength;
+		}
+
+		if (totalSize !== att.size) {
+			throw new Error(
+				`Attachment ${attachmentId} size mismatch: expected ${att.size} bytes, reconstructed ${totalSize} bytes`,
+			);
+		}
+
+		const combined = new Uint8Array(totalSize);
+		let offset = 0;
+		for (const chunk of chunks) {
+			combined.set(chunk, offset);
+			offset += chunk.byteLength;
+		}
+		return combined;
+	}
+
+	async storeAttachment(metadata: Omit<AttachmentData, "chunks">, chunks: Uint8Array[]): Promise<void> {
+		const totalChunks = chunks.length;
+		let calculatedSize = 0;
+		for (const chunk of chunks) {
+			calculatedSize += chunk.byteLength;
+		}
+
+		if (metadata.size !== calculatedSize) {
+			throw new Error(
+				`Attachment size mismatch: metadata declares ${metadata.size} bytes, but chunks sum to ${calculatedSize} bytes`,
+			);
+		}
+
+		const run = () => {
+			this.ctx.storage.sql.exec(
+				"DELETE FROM attachment_chunks WHERE attachment_id = ?",
+				metadata.id,
+			);
+
+			for (let i = 0; i < chunks.length; i++) {
+				this.ctx.storage.sql.exec(
+					"INSERT INTO attachment_chunks (attachment_id, chunk_index, data, created_at) VALUES (?, ?, ?, strftime('%s', 'now'))",
+					metadata.id,
+					i,
+					chunks[i],
+				);
+			}
+
+			const existing = this.db
+				.select({ id: schema.attachments.id })
+				.from(schema.attachments)
+				.where(eq(schema.attachments.id, metadata.id))
+				.get();
+
+			if (existing) {
+				this.db
+					.update(schema.attachments)
+					.set({
+						filename: metadata.filename,
+						mimetype: metadata.mimetype,
+						size: metadata.size,
+						chunk_count: totalChunks,
+						content_id: metadata.content_id ?? null,
+						disposition: metadata.disposition ?? "attachment",
+					})
+					.where(eq(schema.attachments.id, metadata.id))
+					.run();
+			} else {
+				this.db
+					.insert(schema.attachments)
+					.values({
+						id: metadata.id,
+						email_id: metadata.email_id,
+						filename: metadata.filename,
+						mimetype: metadata.mimetype,
+						size: metadata.size,
+						chunk_count: totalChunks,
+						content_id: metadata.content_id ?? null,
+						disposition: metadata.disposition ?? "attachment",
+					})
+					.run();
+			}
+		};
+
+		if (this.ctx.storage.transactionSync) {
+			this.ctx.storage.transactionSync(run);
+		} else {
+			run();
+		}
+	}
+
+	async deleteAttachment(attachmentId: string): Promise<boolean> {
+		const att = this.db
+			.select({ id: schema.attachments.id })
+			.from(schema.attachments)
+			.where(eq(schema.attachments.id, attachmentId))
+			.get();
+
+		if (!att) return false;
+
+		const run = () => {
+			this.ctx.storage.sql.exec(
+				"DELETE FROM attachment_chunks WHERE attachment_id = ?",
+				attachmentId,
+			);
+			this.db
+				.delete(schema.attachments)
+				.where(eq(schema.attachments.id, attachmentId))
+				.run();
+		};
+
+		if (this.ctx.storage.transactionSync) {
+			this.ctx.storage.transactionSync(run);
+		} else {
+			run();
+		}
+
+		return true;
+	}
+
+	async deleteAttachmentsByEmail(emailId: string): Promise<number> {
+		const emailAttachments = this.db
+			.select({ id: schema.attachments.id })
+			.from(schema.attachments)
+			.where(eq(schema.attachments.email_id, emailId))
+			.all();
+
+		if (emailAttachments.length === 0) return 0;
+
+		const run = () => {
+			for (const att of emailAttachments) {
+				this.ctx.storage.sql.exec(
+					"DELETE FROM attachment_chunks WHERE attachment_id = ?",
+					att.id,
+				);
+			}
+			this.db
+				.delete(schema.attachments)
+				.where(eq(schema.attachments.email_id, emailId))
+				.run();
+		};
+
+		if (this.ctx.storage.transactionSync) {
+			this.ctx.storage.transactionSync(run);
+		} else {
+			run();
+		}
+
+		return emailAttachments.length;
 	}
 
 	// ── Folders (Drizzle) ──────────────────────────────────────────
@@ -821,7 +1041,7 @@ export class MailboxDO extends DurableObject<Env> {
 	async createEmail(
 		folder: string,
 		email: EmailData,
-		attachments: AttachmentData[],
+		attachments: AttachmentData[] = [],
 	) {
 		// Resolve folder name or ID to the actual folder ID.
 		const folderRow = this.db
@@ -841,32 +1061,72 @@ export class MailboxDO extends DurableObject<Env> {
 		const folderId = folderRow.id;
 		const isSent = folderId === Folders.SENT;
 
-		// Sent emails are always read — the sender obviously knows what they wrote.
-		// This prevents sent replies from inflating thread_unread_count.
-		this.db
-			.insert(schema.emails)
-			.values({
-				id: email.id,
-				folder_id: folderId,
-				subject: email.subject,
-				sender: email.sender,
-				recipient: email.recipient,
-				cc: email.cc ?? null,
-				bcc: email.bcc ?? null,
-				date: email.date,
-				read: isSent ? 1 : (email.read ? 1 : 0),
-				starred: email.starred ? 1 : 0,
-				body: email.body,
-				in_reply_to: email.in_reply_to ?? null,
-				email_references: email.email_references ?? null,
-				thread_id: email.thread_id ?? null,
-				message_id: email.message_id ?? null,
-				raw_headers: email.raw_headers ?? null,
-			})
-			.run();
+		const run = () => {
+			this.db
+				.insert(schema.emails)
+				.values({
+					id: email.id,
+					folder_id: folderId,
+					subject: email.subject,
+					sender: email.sender,
+					recipient: email.recipient,
+					cc: email.cc ?? null,
+					bcc: email.bcc ?? null,
+					date: email.date,
+					read: isSent ? 1 : (email.read ? 1 : 0),
+					starred: email.starred ? 1 : 0,
+					body: email.body,
+					in_reply_to: email.in_reply_to ?? null,
+					email_references: email.email_references ?? null,
+					thread_id: email.thread_id ?? null,
+					message_id: email.message_id ?? null,
+					raw_headers: email.raw_headers ?? null,
+				})
+				.run();
 
-		if (attachments.length > 0) {
-			this.db.insert(schema.attachments).values(attachments).run();
+			if (attachments.length > 0) {
+				for (const att of attachments) {
+					const chunkCount = att.chunks ? att.chunks.length : (att.chunk_count ?? (att.size === 0 ? 0 : 1));
+					this.db
+						.insert(schema.attachments)
+						.values({
+							id: att.id,
+							email_id: email.id,
+							filename: att.filename,
+							mimetype: att.mimetype,
+							size: att.size,
+							chunk_count: chunkCount,
+							content_id: att.content_id ?? null,
+							disposition: att.disposition ?? "attachment",
+						})
+						.run();
+
+					if (att.chunks && att.chunks.length > 0) {
+						let totalChunkBytes = 0;
+						for (let i = 0; i < att.chunks.length; i++) {
+							const chunk = att.chunks[i];
+							totalChunkBytes += chunk.byteLength;
+							this.ctx.storage.sql.exec(
+								"INSERT INTO attachment_chunks (attachment_id, chunk_index, data, created_at) VALUES (?, ?, ?, strftime('%s', 'now'))",
+								att.id,
+								i,
+								chunk,
+							);
+						}
+						if (totalChunkBytes !== att.size) {
+							throw new Error(
+								`Attachment ${att.id} size mismatch: declared ${att.size} bytes, but chunks sum to ${totalChunkBytes} bytes`,
+							);
+						}
+					}
+				}
+			}
+		};
+
+		if (this.ctx.storage.transactionSync) {
+			this.ctx.storage.transactionSync(run);
+		} else {
+			run();
 		}
 	}
 }
