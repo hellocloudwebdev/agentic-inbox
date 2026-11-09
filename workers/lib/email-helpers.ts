@@ -13,6 +13,8 @@ import type { EmailFull } from "./schemas";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 import { formatQuotedDate } from "../../shared/dates";
+import { getNeonDb, ensureNeonSchema } from "../db/neon-client";
+import { MailboxRepository } from "../db/repositories/mailbox-repository";
 
 // ── DO Stub ────────────────────────────────────────────────────────
 
@@ -32,16 +34,19 @@ export function getMailboxStub(
 // ── Mailbox Listing ────────────────────────────────────────────────
 
 /**
- * List all mailboxes from R2 bucket metadata.
+ * List all mailboxes from Neon PostgreSQL database.
  */
 export async function listMailboxes(
-	bucket: R2Bucket,
-): Promise<{ id: string; email: string }[]> {
-	const list = await bucket.list({ prefix: "mailboxes/" });
-	return list.objects.map((obj) => {
-		const id = obj.key.replace("mailboxes/", "").replace(".json", "");
-		return { id, email: id };
-	});
+	env: Env,
+): Promise<{ id: string; email: string; name: string }[]> {
+	await ensureNeonSchema(env);
+	const repo = new MailboxRepository(getNeonDb(env));
+	const boxes = await repo.listMailboxes();
+	return boxes.map((box) => ({
+		id: box.id,
+		email: box.email,
+		name: box.name || box.id,
+	}));
 }
 
 // ── Sender Validation ──────────────────────────────────────────────

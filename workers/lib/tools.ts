@@ -46,7 +46,7 @@ type RateLimitStub = {
 // ── list_mailboxes ─────────────────────────────────────────────────
 
 export async function toolListMailboxes(env: Env) {
-	return listMailboxes(env.BUCKET);
+	return listMailboxes(env);
 }
 
 // ── list_emails ────────────────────────────────────────────────────
