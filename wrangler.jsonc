@@ -14,7 +14,7 @@
 		// TEAM_DOMAIN may be the base Access URL or the full /cdn-cgi/access/certs URL.
 		// The worker now fails closed outside local development if Access is not configured.
 		// DATABASE_URL is set as a secret via `wrangler secret put DATABASE_URL` (or in .dev.vars for local dev).
-		"DOMAINS": "example.com",
+		"DOMAINS": "mail.neerajsingh.me",
 		"EMAIL_ADDRESSES": []
 	},
 	"send_email": [
