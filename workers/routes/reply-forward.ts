@@ -73,35 +73,44 @@ export async function handleReplyEmail(c: AppContext) {
 		return c.json({ error: "Reply delivery failed", details }, 502);
 	}
 
-	await stub.createEmail(
-		Folders.SENT,
-		{
+	try {
+		await stub.createEmail(
+			Folders.SENT,
+			{
+				id: messageId,
+				subject,
+				sender: fromEmail,
+				recipient: toStr,
+				cc: cc ? (Array.isArray(cc) ? cc.join(", ") : cc).toLowerCase() : null,
+				bcc: bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc).toLowerCase() : null,
+				date: sentAt,
+				body: html || text || "",
+				in_reply_to: originalMsgId,
+				email_references: JSON.stringify(references),
+				thread_id,
+				message_id: outgoingMessageId,
+				raw_headers: JSON.stringify([
+					{ key: "from", value: typeof from === "string" ? from : from.name + " <" + from.email + ">" },
+					{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
+					...(cc ? [{ key: "cc", value: Array.isArray(cc) ? cc.join(", ") : cc }] : []),
+					...(bcc ? [{ key: "bcc", value: Array.isArray(bcc) ? bcc.join(", ") : bcc }] : []),
+					{ key: "subject", value: subject },
+					{ key: "date", value: sentAt },
+					{ key: "message-id", value: "<" + outgoingMessageId + ">" },
+					...(originalMsgId ? [{ key: "in-reply-to", value: "<" + originalMsgId + ">" }] : []),
+					...(references.length > 0 ? [{ key: "references", value: references.map((r: string) => "<" + r + ">").join(" ") }] : []),
+				]),
+			},
+			attachmentData,
+		);
+	} catch (e) {
+		console.error("Zoho accepted reply but Sent copy could not be saved:", e instanceof Error ? e.message : String(e));
+		return c.json({
 			id: messageId,
-			subject,
-			sender: fromEmail,
-			recipient: toStr,
-			cc: cc ? (Array.isArray(cc) ? cc.join(", ") : cc).toLowerCase() : null,
-			bcc: bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc).toLowerCase() : null,
-			date: sentAt,
-			body: html || text || "",
-			in_reply_to: originalMsgId,
-			email_references: JSON.stringify(references),
-			thread_id,
-			message_id: outgoingMessageId,
-			raw_headers: JSON.stringify([
-				{ key: "from", value: typeof from === "string" ? from : from.name + " <" + from.email + ">" },
-				{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
-				...(cc ? [{ key: "cc", value: Array.isArray(cc) ? cc.join(", ") : cc }] : []),
-				...(bcc ? [{ key: "bcc", value: Array.isArray(bcc) ? bcc.join(", ") : bcc }] : []),
-				{ key: "subject", value: subject },
-				{ key: "date", value: sentAt },
-				{ key: "message-id", value: "<" + outgoingMessageId + ">" },
-				...(originalMsgId ? [{ key: "in-reply-to", value: "<" + originalMsgId + ">" }] : []),
-				...(references.length > 0 ? [{ key: "references", value: references.map((r: string) => "<" + r + ">").join(" ") }] : []),
-			]),
-		},
-		attachmentData,
-	);
+			status: "sent",
+			warning: "Zoho accepted the reply, but Agentic Inbox could not save its Sent copy. Do not resend; refresh and check Sent.",
+		}, 200);
+	}
 
 	await stub.markThreadRead(thread_id);
 	return c.json({ id: messageId, status: "sent" }, 200);
@@ -155,33 +164,42 @@ export async function handleForwardEmail(c: AppContext) {
 		return c.json({ error: "Forward delivery failed", details }, 502);
 	}
 
-	await stub.createEmail(
-		Folders.SENT,
-		{
+	try {
+		await stub.createEmail(
+			Folders.SENT,
+			{
+				id: messageId,
+				subject,
+				sender: fromEmail,
+				recipient: toStr,
+				cc: cc ? (Array.isArray(cc) ? cc.join(", ") : cc).toLowerCase() : null,
+				bcc: bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc).toLowerCase() : null,
+				date: sentAt,
+				body: html || text || "",
+				in_reply_to: null,
+				email_references: null,
+				thread_id: messageId,
+				message_id: outgoingMessageId,
+				raw_headers: JSON.stringify([
+					{ key: "from", value: typeof from === "string" ? from : from.name + " <" + from.email + ">" },
+					{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
+					...(cc ? [{ key: "cc", value: Array.isArray(cc) ? cc.join(", ") : cc }] : []),
+					...(bcc ? [{ key: "bcc", value: Array.isArray(bcc) ? bcc.join(", ") : bcc }] : []),
+					{ key: "subject", value: subject },
+					{ key: "date", value: sentAt },
+					{ key: "message-id", value: "<" + outgoingMessageId + ">" },
+				]),
+			},
+			attachmentData,
+		);
+	} catch (e) {
+		console.error("Zoho accepted forward but Sent copy could not be saved:", e instanceof Error ? e.message : String(e));
+		return c.json({
 			id: messageId,
-			subject,
-			sender: fromEmail,
-			recipient: toStr,
-			cc: cc ? (Array.isArray(cc) ? cc.join(", ") : cc).toLowerCase() : null,
-			bcc: bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc).toLowerCase() : null,
-			date: sentAt,
-			body: html || text || "",
-			in_reply_to: null,
-			email_references: null,
-			thread_id: messageId,
-			message_id: outgoingMessageId,
-			raw_headers: JSON.stringify([
-				{ key: "from", value: typeof from === "string" ? from : from.name + " <" + from.email + ">" },
-				{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
-				...(cc ? [{ key: "cc", value: Array.isArray(cc) ? cc.join(", ") : cc }] : []),
-				...(bcc ? [{ key: "bcc", value: Array.isArray(bcc) ? bcc.join(", ") : bcc }] : []),
-				{ key: "subject", value: subject },
-				{ key: "date", value: sentAt },
-				{ key: "message-id", value: "<" + outgoingMessageId + ">" },
-			]),
-		},
-		attachmentData,
-	);
+			status: "sent",
+			warning: "Zoho accepted the forward, but Agentic Inbox could not save its Sent copy. Do not resend; refresh and check Sent.",
+		}, 200);
+	}
 
 	return c.json({ id: messageId, status: "sent" }, 200);
 }
