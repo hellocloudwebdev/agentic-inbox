@@ -118,7 +118,7 @@ export default function Sidebar() {
   const handleNavClick = () => closeSidebar();
 
   return (
-    <aside className="flex h-full w-56 shrink-0 flex-col border-r border-[#e7eaf0] bg-[#fbfcfe]">
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-[#e7eaf0] bg-[#fbfcfe]">
       <div className="px-3 pb-3 pt-4">
         <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-[#e8ebf1] bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#dff2f1] text-sm font-semibold text-[#315e6a]">
