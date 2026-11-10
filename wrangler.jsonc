@@ -18,7 +18,8 @@
 		"EMAIL_ADDRESSES": [],
 		"ZOHO_SMTP_HOST": "smtp.zoho.in",
 		"ZOHO_SMTP_PORT": "587",
-		"ZOHO_SMTP_USERNAME": "mail@neerajsingh.me"
+		"ZOHO_SMTP_USERNAME": "mail@neerajsingh.me",
+		"ZOHO_SMTP_FROM_NAME": "Neeraj Singh"
 	},
 	"ai": {
 		"binding": "AI"
