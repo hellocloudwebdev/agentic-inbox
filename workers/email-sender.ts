@@ -15,6 +15,7 @@ export interface ZohoSmtpEnv {
 	ZOHO_SMTP_HOST?: string;
 	ZOHO_SMTP_PORT?: string;
 	ZOHO_SMTP_USERNAME?: string;
+	ZOHO_SMTP_FROM_NAME?: string;
 	ZOHO_SMTP_PASSWORD?: string;
 }
 
@@ -60,6 +61,7 @@ export async function sendEmail(
 	}
 
 	const fromEmail = (typeof params.from === "string" ? params.from : params.from.email).trim().toLowerCase();
+	const fromName = env.ZOHO_SMTP_FROM_NAME?.trim() || "Neeraj Singh";
 	if (fromEmail !== username.toLowerCase()) {
 		throw new Error(
 			"Zoho SMTP authenticates as " + username +
@@ -82,7 +84,7 @@ export async function sendEmail(
 	try {
 		await mailer.send({
 			to: params.to,
-			from: params.from,
+			from: { email: fromEmail, name: fromName },
 			subject: params.subject,
 			...(params.html ? { html: params.html } : {}),
 			...(params.text ? { text: params.text } : {}),
