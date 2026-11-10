@@ -68,18 +68,19 @@ export async function sendEmail(
 		);
 	}
 
-	await WorkerMailer.send(
-		{
-			host,
-			port,
-			secure: port === 465,
-			startTls: port === 587,
-			authType: "plain",
-			credentials: { username, password },
-			socketTimeoutMs: 20_000,
-			responseTimeoutMs: 20_000,
-		},
-		{
+	const mailer = await WorkerMailer.connect({
+		host,
+		port,
+		secure: port === 465,
+		startTls: port === 587,
+		authType: "plain",
+		credentials: { username, password },
+		socketTimeoutMs: 20_000,
+		responseTimeoutMs: 20_000,
+	});
+
+	try {
+		await mailer.send({
 			to: params.to,
 			from: params.from,
 			subject: params.subject,
@@ -102,6 +103,8 @@ export async function sendEmail(
 					})),
 				}
 				: {}),
-		},
-	);
+		});
+	} finally {
+		await mailer.close();
+	}
 }
