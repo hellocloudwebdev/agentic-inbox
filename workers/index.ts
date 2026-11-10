@@ -215,7 +215,10 @@ app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	try {
 		await sendEmail(c.env, {
 			to, cc, bcc, from, subject, html, text, attachments,
-			...(in_reply_to ? { headers: buildThreadingHeaders(in_reply_to, references || []) } : {}),
+			headers: {
+				"Message-ID": "<" + outgoingMessageId + ">",
+				...(in_reply_to ? buildThreadingHeaders(in_reply_to, references || []) : {}),
+			},
 		});
 	} catch (e) {
 		const details = e instanceof Error ? e.message : String(e);
