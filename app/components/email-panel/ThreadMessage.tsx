@@ -25,6 +25,7 @@ import {
   stripHtml,
 } from "~/lib/utils";
 import type { Email } from "~/types";
+import { useMailbox } from "~/queries/mailboxes";
 
 interface ThreadMessageProps {
   email: Email;
@@ -77,13 +78,23 @@ export default function ThreadMessage({
   onViewSource,
   onPreviewImage,
 }: ThreadMessageProps) {
-  const isSelf = email.sender.toLowerCase() === mailboxEmail?.toLowerCase();
-  const sender = getSenderIdentity(email.sender, email.raw_headers);
-  const senderLabel = isDraft ? "Draft reply" : isSelf ? "You" : sender.name;
+  const { data: currentMailbox } = useMailbox(mailboxId);
+  const selfEmail = currentMailbox?.email || mailboxEmail || mailboxId || "";
+  const selfName =
+    (typeof currentMailbox?.settings?.fromName === "string" &&
+      currentMailbox.settings.fromName.trim()) ||
+    currentMailbox?.name?.trim() ||
+    "You";
+  const selfIdentity = { email: selfEmail, name: selfName };
+  const isSelf =
+    email.sender.trim().toLowerCase() === selfEmail.trim().toLowerCase();
+  const sender = getSenderIdentity(email.sender, email.raw_headers, selfIdentity);
+  const senderLabel = isDraft ? "Draft reply" : sender.name || (isSelf ? selfName : "Sender");
   const recipientSummary = getRecipientSummary(
     email.recipient,
     email.raw_headers,
     email.cc,
+    selfIdentity,
   );
   const containerClassName = `${!isLast ? "border-b border-kumo-line" : ""} ${isDraft ? "border-l-2 border-l-kumo-warning bg-kumo-warning/[0.02]" : ""}`;
 

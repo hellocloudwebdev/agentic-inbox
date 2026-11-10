@@ -8,6 +8,7 @@ import SenderAvatar from "~/components/SenderAvatar";
 import { getRecipientSummary, getSenderIdentity } from "~/lib/email-identity";
 import { formatDetailDate, rewriteInlineImages } from "~/lib/utils";
 import type { Email } from "~/types";
+import { useMailbox } from "~/queries/mailboxes";
 
 interface SingleMessageViewProps {
   email: Email;
@@ -20,11 +21,21 @@ export default function SingleMessageView({
   mailboxId,
   onPreviewImage,
 }: SingleMessageViewProps) {
-  const sender = getSenderIdentity(email.sender, email.raw_headers);
+  const { data: mailbox } = useMailbox(mailboxId);
+  const selfIdentity = {
+    email: mailbox?.email || mailboxId || "",
+    name:
+      (typeof mailbox?.settings?.fromName === "string" &&
+        mailbox.settings.fromName.trim()) ||
+      mailbox?.name?.trim() ||
+      "You",
+  };
+  const sender = getSenderIdentity(email.sender, email.raw_headers, selfIdentity);
   const recipientSummary = getRecipientSummary(
     email.recipient,
     email.raw_headers,
     email.cc,
+    selfIdentity,
   );
 
   return (

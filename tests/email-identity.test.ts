@@ -46,6 +46,37 @@ describe("email identity display", () => {
     ).toEqual(["To: Aman Ansari", "Cc: Lewis Hamilton"]);
   });
 
+  it("uses the configured mailbox name for the account's own sender address", () => {
+    const rawHeaders = JSON.stringify([
+      { key: "from", value: "mail <mail@neerajsingh.me>" },
+    ]);
+
+    expect(
+      getSenderIdentity("mail@neerajsingh.me", rawHeaders, {
+        email: "mail@neerajsingh.me",
+        name: "Neeraj Singh",
+      }),
+    ).toEqual({
+      name: "Neeraj Singh",
+      email: "mail@neerajsingh.me",
+    });
+  });
+
+  it("uses the configured mailbox name for the account's own recipient address", () => {
+    const rawHeaders = JSON.stringify([
+      { key: "to", value: "Mail <mail@neerajsingh.me>" },
+    ]);
+
+    expect(
+      getRecipientSummary(
+        "mail@neerajsingh.me",
+        rawHeaders,
+        null,
+        { email: "mail@neerajsingh.me", name: "Neeraj Singh" },
+      ),
+    ).toEqual(["To: Neeraj Singh"]);
+  });
+
   it("handles malformed headers without failing", () => {
     expect(getSenderIdentity("support@example.com", "{bad json}")).toEqual({
       name: "Support",
