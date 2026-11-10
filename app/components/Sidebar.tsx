@@ -9,7 +9,6 @@ import {
   FolderIcon,
   GearSixIcon,
   PaperPlaneTiltIcon,
-  PencilSimpleIcon,
   PlusIcon,
   RobotIcon,
   TrashIcon,
@@ -139,16 +138,17 @@ export default function Sidebar() {
         <button
           type="button"
           onClick={() => startCompose()}
-          className="group relative flex h-[46px] w-full items-center gap-2.5 overflow-hidden rounded-xl px-3.5 text-left text-[13px] font-semibold text-white shadow-[0_5px_14px_rgba(18,143,224,0.20)] transition-all hover:-translate-y-px hover:shadow-[0_8px_18px_rgba(18,143,224,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#72b5ed] focus-visible:ring-offset-2"
+          aria-label="Compose email"
+          title="Compose email"
+          className="group relative block h-[49px] w-full overflow-hidden rounded-xl border-0 bg-transparent p-0 shadow-[0_5px_14px_rgba(18,143,224,0.20)] transition-all hover:-translate-y-px hover:shadow-[0_8px_18px_rgba(18,143,224,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#72b5ed] focus-visible:ring-offset-2"
           style={{
-            backgroundImage:
-              "linear-gradient(90deg, rgba(8,145,229,0.98) 0%, rgba(8,145,229,0.93) 42%, rgba(8,145,229,0.48) 72%, rgba(8,145,229,0.12) 100%), url('/images/compose-landscape.jpg')",
-            backgroundSize: "cover, cover",
-            backgroundPosition: "center, 76% 52%",
+            backgroundImage: "url('/images/compose-button.webp')",
+            backgroundSize: "100% 100%",
+            backgroundPosition: "center",
+            backgroundRepeat: "no-repeat",
           }}
         >
-          <PencilSimpleIcon size={17} weight="bold" />
-          <span className="relative">Compose email</span>
+          <span className="sr-only">Compose email</span>
         </button>
       </div>
 
