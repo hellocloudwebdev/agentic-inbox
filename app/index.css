@@ -2,8 +2,41 @@
 @import "@cloudflare/kumo/styles/tailwind";
 @import "tailwindcss";
 
+:root {
+  color-scheme: light;
+  background: #f6f7fb;
+}
+
+html,
 body {
+  min-height: 100%;
   margin: 0;
+  background: #f6f7fb;
+}
+
+body {
+  color: #202b3c;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #d8dee8 transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: #d8dee8;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 /* TipTap list styles */
