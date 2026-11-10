@@ -16,7 +16,7 @@ import {
   TrayIcon,
 } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
-import { NavLink, useNavigate, useParams } from "react-router";
+import { NavLink, useParams } from "react-router";
 import { Folders, SYSTEM_FOLDER_IDS } from "shared/folders";
 import { useCreateFolder, useFolders } from "~/queries/folders";
 import { useMailbox } from "~/queries/mailboxes";
@@ -76,7 +76,6 @@ function FolderLink({
 
 export default function Sidebar() {
   const { mailboxId } = useParams<{ mailboxId: string }>();
-  const navigate = useNavigate();
   const { data: folders = [] } = useFolders(mailboxId);
   const createFolderMutation = useCreateFolder();
   const { startCompose, closeSidebar, toggleAgentPanel, isAgentPanelOpen } =
