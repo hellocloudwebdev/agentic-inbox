@@ -78,14 +78,14 @@ function cleanDisplayName(value: string): string {
   return value
     .trim()
     .replace(/^["']|["']$/g, "")
-    .replace(/\\s+/g, " ");
+    .replace(/\s+/g, " ");
 }
 
 function prettifyEmailLocalPart(email: string): string {
   const localPart = email.split("@")[0] || email;
   const words = localPart.replace(/[._+-]+/g, " ").trim();
   if (!words) return email;
-  return words.replace(/\\b\\p{L}/gu, (letter) => letter.toUpperCase());
+  return words.replace(/\b[a-z]/gi, (letter) => letter.toUpperCase());
 }
 
 export function parseAddressList(value: string | null | undefined): DisplayAddress[] {
@@ -93,7 +93,7 @@ export function parseAddressList(value: string | null | undefined): DisplayAddre
 
   return splitAddressList(value)
     .map((item) => {
-      const angleMatch = item.match(/^(.*?)\\s*<([^<>]+)>\\s*$/);
+      const angleMatch = item.match(/^(.*?)\s*<([^<>]+)>\s*$/);
       if (angleMatch) {
         const email = angleMatch[2].trim();
         const name = cleanDisplayName(angleMatch[1]);
@@ -103,7 +103,7 @@ export function parseAddressList(value: string | null | undefined): DisplayAddre
         };
       }
 
-      const emailMatch = item.match(/[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9.-]+\\.[A-Z]{2,}/i);
+      const emailMatch = item.match(/[A-Z0-9.!#$%&'*+/=?^_\x60{|}~-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i);
       if (emailMatch) {
         const email = emailMatch[0].trim();
         const name = cleanDisplayName(item.replace(emailMatch[0], "").replace(/[<>]/g, ""));
@@ -151,11 +151,11 @@ export function getRecipientSummary(
 
   const lines: string[] = [];
   if (toAddresses.length > 0) {
-    lines.push(`To: ${toAddresses.map((address) => address.name || address.email).join(", ")}`);
+    lines.push("To: " + toAddresses.map((address) => address.name || address.email).join(", "));
   }
   if (ccAddresses.length > 0) {
-    lines.push(`Cc: ${ccAddresses.map((address) => address.name || address.email).join(", ")}`);
+    lines.push("Cc: " + ccAddresses.map((address) => address.name || address.email).join(", "));
   }
-  if (lines.length === 0 && recipient.trim()) lines.push(`To: ${recipient}`);
+  if (lines.length === 0 && recipient.trim()) lines.push("To: " + recipient);
   return lines;
 }
