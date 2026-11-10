@@ -254,9 +254,10 @@ app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 		const details = e instanceof Error ? e.message : String(e);
 		console.error("Zoho accepted email but Sent copy could not be saved:", details);
 		return c.json({
-			error: "Zoho accepted the email, but Agentic Inbox could not save its Sent copy",
 			id: messageId,
-		}, 500);
+			status: "sent",
+			warning: "Zoho accepted the email, but Agentic Inbox could not save its Sent copy. Do not resend; refresh and check Sent.",
+		}, 200);
 	}
 
 	return c.json({ id: messageId, status: "sent" }, 200);
