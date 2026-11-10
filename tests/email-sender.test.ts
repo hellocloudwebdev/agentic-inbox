@@ -16,6 +16,7 @@ const smtpEnv = {
 	ZOHO_SMTP_HOST: "smtp.zoho.in",
 	ZOHO_SMTP_PORT: "587",
 	ZOHO_SMTP_USERNAME: "mail@neerajsingh.me",
+	ZOHO_SMTP_FROM_NAME: "Neeraj Singh",
 	ZOHO_SMTP_PASSWORD: "test-only-secret",
 };
 
@@ -31,7 +32,7 @@ describe("Zoho SMTP sender", () => {
 
 	it("uses authenticated STARTTLS and preserves recipients, headers, and attachments", async () => {
 		await sendEmail(smtpEnv, {
-			from: { email: "mail@neerajsingh.me", name: "Neeraj" },
+			from: { email: "mail@neerajsingh.me", name: "mail" },
 			to: ["one@example.com", "two@example.com"],
 			cc: "copy@example.com",
 			bcc: "hidden@example.com",
@@ -65,7 +66,7 @@ describe("Zoho SMTP sender", () => {
 			},
 		});
 		expect(message).toMatchObject({
-			from: { email: "mail@neerajsingh.me", name: "Neeraj" },
+			from: { email: "mail@neerajsingh.me", name: "Neeraj Singh" },
 			to: ["one@example.com", "two@example.com"],
 			cc: "copy@example.com",
 			bcc: "hidden@example.com",
@@ -83,6 +84,19 @@ describe("Zoho SMTP sender", () => {
 			}],
 		});
 		expect(closeMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("applies the configured display name when callers pass only the mailbox address", async () => {
+		await sendEmail(smtpEnv, {
+			from: "mail@neerajsingh.me",
+			to: "recipient@example.com",
+			subject: "Display name test",
+			text: "Hello",
+		});
+
+		expect(sendMock.mock.calls[0][0]).toMatchObject({
+			from: { email: "mail@neerajsingh.me", name: "Neeraj Singh" },
+		});
 	});
 
 	it("uses implicit TLS on port 465", async () => {
