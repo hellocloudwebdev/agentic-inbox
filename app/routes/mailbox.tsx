@@ -58,7 +58,7 @@ export default function MailboxRoute() {
 
       {/* Mailbox folders: a drawer on mobile, a fixed column on desktop. */}
       <div
-        className={`fixed inset-y-0 left-0 z-40 w-56 transform transition-transform duration-200 ease-in-out md:relative md:z-0 md:translate-x-0 md:shrink-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-60 transform transition-transform duration-200 ease-in-out md:relative md:z-0 md:translate-x-0 md:shrink-0 ${
           isSidebarOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
