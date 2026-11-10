@@ -5,7 +5,6 @@
 import { Badge, Button, Dialog, Input, Tooltip } from "@cloudflare/kumo";
 import {
   ArchiveIcon,
-  CaretLeftIcon,
   FileIcon,
   FolderIcon,
   GearSixIcon,
@@ -121,28 +120,16 @@ export default function Sidebar() {
 
   return (
     <aside className="flex h-full w-56 shrink-0 flex-col border-r border-[#e7eaf0] bg-[#fbfcfe]">
-      <div className="px-4 pb-4 pt-4">
-        <button
-          type="button"
-          onClick={() => {
-            navigate("/");
-            closeSidebar();
-          }}
-          className="mb-4 flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 text-xs font-medium text-[#8993a4] transition-colors hover:text-[#344054]"
-        >
-          <CaretLeftIcon size={14} />
-          <span>Mailboxes</span>
-        </button>
-
-        <div className="flex min-w-0 items-center gap-2.5">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e8edff] text-sm font-semibold text-[#5366d8]">
+      <div className="px-3 pb-3 pt-4">
+        <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-[#e8ebf1] bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#dff2f1] text-sm font-semibold text-[#315e6a]">
             {displayName.trim().charAt(0).toUpperCase()}
           </div>
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-[#202b3c]">
+            <div className="truncate text-[13px] font-semibold text-[#202b3c]">
               {displayName}
             </div>
-            <div className="mt-0.5 truncate text-[11px] text-[#8993a4]">
+            <div className="mt-0.5 truncate text-[10px] text-[#8993a4]">
               {currentMailbox?.email || mailboxId}
             </div>
           </div>
@@ -150,14 +137,20 @@ export default function Sidebar() {
       </div>
 
       <div className="px-3 pb-4">
-        <Button
-          variant="primary"
-          icon={<PencilSimpleIcon size={16} />}
+        <button
+          type="button"
           onClick={() => startCompose()}
-          className="w-full rounded-xl shadow-sm"
+          className="group relative flex h-[46px] w-full items-center gap-2.5 overflow-hidden rounded-xl px-3.5 text-left text-[13px] font-semibold text-white shadow-[0_5px_14px_rgba(18,143,224,0.20)] transition-all hover:-translate-y-px hover:shadow-[0_8px_18px_rgba(18,143,224,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#72b5ed] focus-visible:ring-offset-2"
+          style={{
+            backgroundImage:
+              "linear-gradient(90deg, rgba(8,145,229,0.98) 0%, rgba(8,145,229,0.93) 42%, rgba(8,145,229,0.48) 72%, rgba(8,145,229,0.12) 100%), url('/images/compose-landscape.jpg')",
+            backgroundSize: "cover, cover",
+            backgroundPosition: "center, 76% 52%",
+          }}
         >
-          Compose email
-        </Button>
+          <PencilSimpleIcon size={17} weight="bold" />
+          <span className="relative">Compose email</span>
+        </button>
       </div>
 
       <nav className="min-h-0 flex-1 overflow-y-auto px-2.5">
