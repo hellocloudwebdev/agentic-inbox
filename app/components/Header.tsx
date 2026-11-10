@@ -2,7 +2,7 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { Button, Input, Tooltip } from "@cloudflare/kumo";
+import { Button, Tooltip } from "@cloudflare/kumo";
 import {
   GearSixIcon,
   ListIcon,
@@ -45,17 +45,16 @@ export default function Header() {
 
   const urlQuery = searchParams.get("q") || "";
   useEffect(() => {
-    if (location.pathname.includes("/search") && urlQuery) {
+    if (location.pathname.includes("/search")) {
       setSearchQuery(urlQuery);
     }
   }, [urlQuery, location.pathname]);
 
   const performSearch = () => {
-    if (mailboxId && searchQuery.trim()) {
-      const q = searchQuery.trim();
-      navigate(`/mailbox/${mailboxId}/search?q=${encodeURIComponent(q)}`);
-      setIsSearchExpanded(false);
-    }
+    const query = searchQuery.trim();
+    if (!mailboxId || !query) return;
+    navigate(`/mailbox/${mailboxId}/search?q=${encodeURIComponent(query)}`);
+    setIsSearchExpanded(false);
   };
 
   const clearSearch = () => {
@@ -65,9 +64,12 @@ export default function Header() {
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === "Enter") performSearch();
-    if (e.key === "Escape") {
+  const handleKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      performSearch();
+    }
+    if (event.key === "Escape") {
       if (searchQuery) clearSearch();
       else setIsSearchExpanded(false);
     }
@@ -99,43 +101,50 @@ export default function Header() {
       </div>
 
       <div
-        className={`mx-auto flex min-w-0 flex-1 items-center gap-2 transition-all sm:max-w-[620px] ${
+        className={`mx-auto flex min-w-0 flex-1 items-center gap-2 sm:max-w-[620px] ${
           isSearchExpanded ? "flex" : "hidden md:flex"
         }`}
       >
-        <div className="relative flex min-w-0 flex-1 items-center">
+        <div className="relative min-w-0 flex-1">
           <MagnifyingGlassIcon
             size={17}
-            className="pointer-events-none absolute left-3 text-[#9aa3b2]"
+            weight="regular"
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8993a4]"
           />
-          <Input
-            className="w-full"
+          <input
+            type="text"
             aria-label="Search emails"
             placeholder="Search anything..."
+            autoComplete="off"
+            spellCheck={false}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(event) => setSearchQuery(event.target.value)}
             onKeyDown={handleKeyDown}
+            className="block h-10 w-full min-w-0 rounded-[11px] border border-[#e1e5ec] bg-white pl-10 pr-10 text-[13px] font-normal leading-none text-[#344054] outline-none transition-[border-color,box-shadow] placeholder:text-[#929bad] hover:border-[#cfd6e1] focus:border-[#75a0fb] focus:ring-[3px] focus:ring-[#e9f0ff]"
           />
           {searchQuery && (
             <button
               type="button"
               onClick={clearSearch}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-0.5 text-[#8993a4] transition-colors hover:bg-[#f0f3f8] hover:text-[#344054]"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-[#929bad] transition-colors hover:bg-[#f1f4f8] hover:text-[#344054] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9bb8fa]"
               aria-label="Clear search"
             >
               <XIcon size={14} />
             </button>
           )}
         </div>
+
         <Tooltip content="Search" side="bottom" asChild>
-          <Button
-            variant="primary"
-            shape="square"
-            icon={<MagnifyingGlassIcon size={18} />}
+          <button
+            type="button"
             onClick={performSearch}
             aria-label="Search"
-            className="shrink-0 rounded-lg"
-          />
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] border-0 bg-[#0865f7] text-white shadow-[0_2px_5px_rgba(8,101,247,0.18)] transition-colors hover:bg-[#0758dd] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9bb8fa] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={!searchQuery.trim()}
+          >
+            <MagnifyingGlassIcon size={18} weight="regular" />
+          </button>
         </Tooltip>
       </div>
 

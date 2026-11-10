@@ -4,6 +4,8 @@
 
 import EmailAttachmentList from "~/components/EmailAttachmentList";
 import EmailIframe from "~/components/EmailIframe";
+import SenderAvatar from "~/components/SenderAvatar";
+import { getRecipientSummary, getSenderIdentity } from "~/lib/email-identity";
 import { formatDetailDate, rewriteInlineImages } from "~/lib/utils";
 import type { Email } from "~/types";
 
@@ -18,24 +20,41 @@ export default function SingleMessageView({
   mailboxId,
   onPreviewImage,
 }: SingleMessageViewProps) {
+  const sender = getSenderIdentity(email.sender, email.raw_headers);
+  const recipientSummary = getRecipientSummary(
+    email.recipient,
+    email.raw_headers,
+    email.cc,
+  );
+
   return (
     <div className="flex h-full flex-col bg-white">
-      <div className="border-b border-[#edf0f4] px-5 py-5 md:px-7">
-        <div className="flex items-center justify-between gap-4">
+      <div className="border-b border-[#edf0f4] px-5 py-4 md:px-7">
+        <div className="flex items-start justify-between gap-4">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#e7eefb] text-sm font-semibold text-[#49658d]">
-              {email.sender.charAt(0).toUpperCase()}
-            </div>
+            <SenderAvatar
+              email={sender.email || email.sender}
+              name={sender.name}
+              size={40}
+              className="ring-1 ring-black/[0.03]"
+            />
             <div className="min-w-0">
-              <div className="truncate text-[13px] font-semibold text-[#273449]">
-                {email.sender}
+              <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="max-w-full truncate text-[13px] font-semibold leading-[1.35] text-[#273449]">
+                  {sender.name}
+                </span>
+                <span className="min-w-0 truncate text-[11px] font-normal leading-[1.4] text-[#8993a4]">
+                  {sender.email}
+                </span>
               </div>
-              <div className="mt-0.5 truncate text-[11px] text-[#929bad]">
-                To: {email.recipient}
-              </div>
+              {recipientSummary.length > 0 && (
+                <div className="mt-1 truncate text-[11px] leading-[1.4] text-[#929bad]" title={recipientSummary.join("; ")}>
+                  {recipientSummary.join("; ")}
+                </div>
+              )}
             </div>
           </div>
-          <span className="shrink-0 text-[11px] text-[#929bad]">
+          <span className="shrink-0 pt-0.5 text-[11px] font-normal text-[#929bad]">
             {formatDetailDate(email.date)}
           </span>
         </div>
