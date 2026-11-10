@@ -3,24 +3,26 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 interface EmailPanelHeaderProps {
-	subject: string;
-	messageCount: number;
-	showThreadCount: boolean;
+  subject: string;
+  messageCount: number;
+  showThreadCount: boolean;
 }
 
 export default function EmailPanelHeader({
-	subject,
-	messageCount,
-	showThreadCount,
+  subject,
+  messageCount,
+  showThreadCount,
 }: EmailPanelHeaderProps) {
-	return (
-		<div className="px-4 py-3 border-b border-kumo-line shrink-0 md:px-6">
-			<h2 className="text-base font-semibold text-kumo-default">{subject}</h2>
-			{showThreadCount && (
-				<span className="text-xs text-kumo-subtle mt-0.5 block">
-					{messageCount} messages in this thread
-				</span>
-			)}
-		</div>
-	);
+  return (
+    <div className="shrink-0 border-b border-[#edf0f4] bg-white px-5 py-5 md:px-7">
+      <h2 className="text-[19px] font-semibold leading-snug tracking-[-0.025em] text-[#202b3c]">
+        {subject || "(no subject)"}
+      </h2>
+      {showThreadCount && (
+        <span className="mt-1.5 block text-[11px] text-[#929bad]">
+          {messageCount} messages in this conversation
+        </span>
+      )}
+    </div>
+  );
 }
