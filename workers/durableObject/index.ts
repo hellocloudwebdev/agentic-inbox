@@ -155,6 +155,7 @@ export class MailboxDO extends DurableObject<Env> {
 				recipient: schema.emails.recipient,
 				cc: schema.emails.cc,
 				bcc: schema.emails.bcc,
+				raw_headers: schema.emails.raw_headers,
 				date: schema.emails.date,
 				read: schema.emails.read,
 				starred: schema.emails.starred,
@@ -266,7 +267,7 @@ export class MailboxDO extends DurableObject<Env> {
 					FROM folder_emails fe
 				)
 				SELECT
-					lp.id, lp.subject, lp.sender, lp.recipient, lp.date,
+					lp.id, lp.subject, lp.sender, lp.recipient, lp.date, lp.raw_headers,
 					lp.read, lp.starred, lp.thread_id, lp.folder_id,
 					lp.in_reply_to, lp.email_references,
 					SUBSTR(lp.body, 1, 300) as snippet,
@@ -354,7 +355,7 @@ export class MailboxDO extends DurableObject<Env> {
 					ON fe.raw_thread_id = tc.raw_thread_id
 			)
 			SELECT
-				lif.id, lif.subject, lif.sender, lif.recipient, lif.date,
+				lif.id, lif.subject, lif.sender, lif.recipient, lif.date, lif.raw_headers,
 				lif.read, lif.starred, lif.thread_id, lif.folder_id,
 				lif.in_reply_to, lif.email_references,
 				SUBSTR(lif.body, 1, 300) as snippet,
@@ -923,7 +924,7 @@ export class MailboxDO extends DurableObject<Env> {
 		const offset = (page - 1) * limit;
 
 		const query = `
-			SELECT e.id, e.subject, e.sender, e.recipient, e.cc, e.bcc, e.date,
+			SELECT e.id, e.subject, e.sender, e.recipient, e.cc, e.bcc, e.date, e.raw_headers,
 				e.read, e.starred, e.in_reply_to, e.email_references,
 				e.thread_id, e.folder_id,
 				SUBSTR(e.body, 1, 300) as snippet,
