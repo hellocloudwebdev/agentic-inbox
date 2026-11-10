@@ -7,6 +7,11 @@ export interface DisplayAddress {
   email: string;
 }
 
+export interface SelfIdentity {
+  email?: string;
+  name?: string;
+}
+
 type RawHeader = {
   key?: unknown;
   name?: unknown;
@@ -122,13 +127,20 @@ export function parseAddressList(value: string | null | undefined): DisplayAddre
 export function getSenderIdentity(
   sender: string,
   rawHeaders?: string | null,
+  selfIdentity?: SelfIdentity,
 ): DisplayAddress {
   const fromHeader = getHeaderValue(rawHeaders, "from");
   const parsed = parseAddressList(fromHeader || sender)[0];
 
   if (parsed) {
+    const isSelf =
+      !!selfIdentity?.email &&
+      parsed.email.toLowerCase() === selfIdentity.email.trim().toLowerCase();
+
     return {
-      name: parsed.name || prettifyEmailLocalPart(parsed.email || sender),
+      name: isSelf && selfIdentity.name?.trim()
+        ? selfIdentity.name.trim()
+        : parsed.name || prettifyEmailLocalPart(parsed.email || sender),
       email: parsed.email || sender,
     };
   }
@@ -143,18 +155,28 @@ export function getRecipientSummary(
   recipient: string,
   rawHeaders?: string | null,
   cc?: string | null,
+  selfIdentity?: SelfIdentity,
 ): string[] {
   const toHeader = getHeaderValue(rawHeaders, "to");
   const ccHeader = getHeaderValue(rawHeaders, "cc");
   const toAddresses = parseAddressList(toHeader || recipient);
   const ccAddresses = parseAddressList(ccHeader || cc || "");
 
+  const formatAddress = (address: DisplayAddress) => {
+    const isSelf =
+      !!selfIdentity?.email &&
+      address.email.toLowerCase() === selfIdentity.email.trim().toLowerCase();
+    return isSelf && selfIdentity.name?.trim()
+      ? selfIdentity.name.trim()
+      : address.name || address.email;
+  };
+
   const lines: string[] = [];
   if (toAddresses.length > 0) {
-    lines.push("To: " + toAddresses.map((address) => address.name || address.email).join(", "));
+    lines.push("To: " + toAddresses.map(formatAddress).join(", "));
   }
   if (ccAddresses.length > 0) {
-    lines.push("Cc: " + ccAddresses.map((address) => address.name || address.email).join(", "));
+    lines.push("Cc: " + ccAddresses.map(formatAddress).join(", "));
   }
   if (lines.length === 0 && recipient.trim()) lines.push("To: " + recipient);
   return lines;
