@@ -3,6 +3,10 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { useEffect, useState } from "react";
+import {
+  getSenderAvatarBrand,
+  getSenderAvatarSources,
+} from "~/lib/avatar-sources";
 
 interface SenderAvatarProps {
   email: string;
@@ -19,56 +23,54 @@ const AVATAR_TONES = [
   "bg-[#fff0d9] text-[#946528]",
 ];
 
-// Consumer-mail domains have no public company profile logo. For those
-// senders we use a real Gravatar when one exists, otherwise initials.
-const PERSONAL_EMAIL_DOMAINS = new Set([
-  "gmail.com",
-  "googlemail.com",
-  "outlook.com",
-  "hotmail.com",
-  "live.com",
-  "msn.com",
-  "yahoo.com",
-  "yahoo.co.in",
-  "icloud.com",
-  "me.com",
-  "aol.com",
-  "proton.me",
-  "protonmail.com",
-  "gmx.com",
-  "rediffmail.com",
-]);
-
-async function getAvatarSources(email: string, size: number): Promise<string[]> {
-  const normalized = email.trim().toLowerCase();
-  const separator = normalized.lastIndexOf("@");
-  if (separator <= 0 || separator === normalized.length - 1) return [];
-
-  const domain = normalized.slice(separator + 1);
-  const sources: string[] = [];
-
-  // Gravatar uses SHA-256(email.trim().toLowerCase()) and only returns a
-  // photo when the sender has published one for this address.
-  if (globalThis.crypto?.subtle) {
-    const bytes = new TextEncoder().encode(normalized);
-    const digest = await globalThis.crypto.subtle.digest("SHA-256", bytes);
-    const hash = Array.from(new Uint8Array(digest))
-      .map((byte) => byte.toString(16).padStart(2, "0"))
-      .join("");
-    sources.push(
-      `https://gravatar.com/avatar/${hash}?s=${Math.max(96, size * 3)}&d=404`,
-    );
-  }
-
-  // For work/system mailers, also try the sender organization's public
-  // favicon. This avoids showing initials for domains such as Zoho.
-  if (!PERSONAL_EMAIL_DOMAINS.has(domain)) {
-    sources.push(
-      `https://www.google.com/s2/favicons?domain=${encodeURIComponent(domain)}&sz=128`,
-    );
-  }
-
-  return sources;
+function ZohoBrandMark() {
+  return (
+    <svg
+      viewBox="0 0 128 76"
+      width="100%"
+      height="100%"
+      aria-hidden="true"
+      className="p-[5px]"
+    >
+      <g fill="none" strokeWidth="6.5" strokeLinejoin="round">
+        <rect
+          x="5"
+          y="22"
+          width="39"
+          height="39"
+          rx="7"
+          stroke="#E42527"
+          transform="rotate(-9 24.5 41.5)"
+        />
+        <rect
+          x="34"
+          y="8"
+          width="39"
+          height="39"
+          rx="7"
+          stroke="#049949"
+          transform="rotate(19 53.5 27.5)"
+        />
+        <rect
+          x="62"
+          y="19"
+          width="39"
+          height="39"
+          rx="7"
+          stroke="#236DB4"
+          transform="rotate(-8 81.5 38.5)"
+        />
+        <rect
+          x="88"
+          y="22"
+          width="35"
+          height="37"
+          rx="7"
+          stroke="#F9B21D"
+        />
+      </g>
+    </svg>
+  );
 }
 
 export default function SenderAvatar({
@@ -83,15 +85,20 @@ export default function SenderAvatar({
     index: number;
   }>({ email: "", sources: [], index: 0 });
 
+  const brand = getSenderAvatarBrand(email);
   const toneIndex =
     Math.abs((email || name).charCodeAt(0) || 0) % AVATAR_TONES.length;
-  const initial = (name.trim().charAt(0) || email.trim().charAt(0) || "?").toUpperCase();
+  const initial = (
+    name.trim().charAt(0) ||
+    email.trim().charAt(0) ||
+    "?"
+  ).toUpperCase();
 
   useEffect(() => {
     let cancelled = false;
     setAvatarState({ email, sources: [], index: 0 });
 
-    getAvatarSources(email, size)
+    getSenderAvatarSources(email, size)
       .then((sources) => {
         if (!cancelled) setAvatarState({ email, sources, index: 0 });
       })
@@ -109,13 +116,20 @@ export default function SenderAvatar({
 
   return (
     <div
-      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold ${AVATAR_TONES[toneIndex]} ${className}`}
+      className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-full font-semibold ${
+        brand === "zoho"
+          ? "border border-[#edf0f4] bg-white"
+          : AVATAR_TONES[toneIndex]
+      } ${className}`}
       style={{ width: size, height: size, fontSize: Math.max(11, size * 0.34) }}
       role="img"
-      aria-label={`Avatar for ${name || email || "sender"}`}
+      aria-label={`${name || "Sender"} profile image`}
     >
-      {!activeSource && <span aria-hidden="true">{initial}</span>}
-      {activeSource && (
+      {brand === "zoho" && <ZohoBrandMark />}
+      {!brand && !activeSource && (
+        <span aria-hidden="true">{initial}</span>
+      )}
+      {!brand && activeSource && (
         <img
           key={activeSource}
           src={activeSource}
