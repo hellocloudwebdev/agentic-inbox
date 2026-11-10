@@ -5,6 +5,7 @@
 import { Badge, Button, Dialog, Input, Tooltip } from "@cloudflare/kumo";
 import {
   ArchiveIcon,
+  EnvelopeSimpleIcon,
   FileIcon,
   FolderIcon,
   GearSixIcon,
@@ -140,15 +141,24 @@ export default function Sidebar() {
           onClick={() => startCompose()}
           aria-label="Compose email"
           title="Compose email"
-          className="group relative block h-[49px] w-full overflow-hidden rounded-xl border-0 bg-transparent p-0 shadow-[0_5px_14px_rgba(18,143,224,0.20)] transition-all hover:-translate-y-px hover:shadow-[0_8px_18px_rgba(18,143,224,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#72b5ed] focus-visible:ring-offset-2"
+          className="group relative flex h-[49px] w-full items-center gap-2.5 overflow-hidden rounded-xl border-0 px-3.5 py-0 text-left text-white shadow-[0_5px_14px_rgba(18,143,224,0.20)] transition-all hover:-translate-y-px hover:shadow-[0_8px_18px_rgba(18,143,224,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#72b5ed] focus-visible:ring-offset-2"
           style={{
-            backgroundImage: "url('/images/compose-button.webp')",
-            backgroundSize: "100% 100%",
-            backgroundPosition: "center",
+            backgroundImage:
+              "linear-gradient(90deg, rgba(8,112,190,0.94) 0%, rgba(8,112,190,0.76) 48%, rgba(8,64,91,0.18) 100%), url('/images/compose-landscape-hq.webp')",
+            backgroundSize: "cover",
+            backgroundPosition: "center 55%",
             backgroundRepeat: "no-repeat",
           }}
         >
-          <span className="sr-only">Compose email</span>
+          <EnvelopeSimpleIcon
+            size={17}
+            weight="bold"
+            aria-hidden="true"
+            className="relative z-10 shrink-0 drop-shadow-sm"
+          />
+          <span className="relative z-10 text-[13px] font-semibold tracking-[-0.01em] drop-shadow-sm">
+            Compose email
+          </span>
         </button>
       </div>
 
