@@ -90,7 +90,7 @@ All outbound paths share the Zoho SMTP transport:
 - Replies and forwards
 - Agent/tool-initiated sends and replies
 
-The Worker connects to Zoho using `@workermailer/smtp` and Cloudflare TCP sockets. Port `587` uses STARTTLS; port `465` uses implicit TLS. The SMTP password is read from a Cloudflare Worker secret and must never be committed to the repository.
+The Worker connects to Zoho using `@workermailer/smtp` and Cloudflare TCP sockets. Port `587` uses STARTTLS; port `465` uses implicit TLS. The visible sender name is configured independently with `ZOHO_SMTP_FROM_NAME` (currently `Neeraj Singh`), while the mailbox address remains `mail@neerajsingh.me`. The SMTP password is read from a Cloudflare Worker secret and must never be committed to the repository.
 
 The API reports success after the SMTP server accepts the message. SMTP acceptance is not a guarantee that the recipient's provider will place the message in the inbox; downstream filtering, rejection, and delivery delays remain possible.
 
@@ -137,6 +137,7 @@ Set the following non-secret values in `wrangler.jsonc` or the Cloudflare Worker
 | `ZOHO_SMTP_HOST` | Zoho SMTP server for your data centre | `smtp.zoho.in` |
 | `ZOHO_SMTP_PORT` | SMTP TLS mode/port | `587` |
 | `ZOHO_SMTP_USERNAME` | Authenticated Zoho mailbox | `mail@example.com` |
+| `ZOHO_SMTP_FROM_NAME` | Display name shown to recipients | `Neeraj Singh` |
 
 Use the SMTP hostname shown by Zoho for your account's data centre and account type. The India data centre commonly uses `smtp.zoho.in`; verify the value in your Zoho Mail settings.
 
