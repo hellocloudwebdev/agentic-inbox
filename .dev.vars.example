@@ -5,3 +5,8 @@ TEAM_DOMAIN=https://your-team.cloudflareaccess.com
 # Neon PostgreSQL connection string (pooled or direct serverless connection)
 DATABASE_URL=postgresql://user:password@ep-sample-123456.us-east-2.aws.neon.tech/neondb?sslmode=require
 
+# Zoho SMTP (use the server shown for your Zoho data centre; India DC uses smtp.zoho.in)
+ZOHO_SMTP_HOST=smtp.zoho.in
+ZOHO_SMTP_PORT=587
+ZOHO_SMTP_USERNAME=mail@neerajsingh.me
+ZOHO_SMTP_PASSWORD=your-zoho-app-password
