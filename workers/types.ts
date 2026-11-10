@@ -9,5 +9,6 @@ export interface Env extends Cloudflare.Env {
 	ZOHO_SMTP_HOST: string;
 	ZOHO_SMTP_PORT: string;
 	ZOHO_SMTP_USERNAME: string;
+	ZOHO_SMTP_FROM_NAME: string;
 	ZOHO_SMTP_PASSWORD: string;
 }
