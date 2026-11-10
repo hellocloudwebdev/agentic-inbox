@@ -9,4 +9,5 @@ DATABASE_URL=postgresql://user:password@ep-sample-123456.us-east-2.aws.neon.tech
 ZOHO_SMTP_HOST=smtp.zoho.in
 ZOHO_SMTP_PORT=587
 ZOHO_SMTP_USERNAME=mail@neerajsingh.me
+ZOHO_SMTP_FROM_NAME=Neeraj Singh
 ZOHO_SMTP_PASSWORD=your-zoho-app-password
