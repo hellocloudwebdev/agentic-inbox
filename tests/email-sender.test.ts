@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { sendMock } = vi.hoisted(() => ({
+const { connectMock, sendMock, closeMock } = vi.hoisted(() => ({
+	connectMock: vi.fn(),
 	sendMock: vi.fn(),
+	closeMock: vi.fn(),
 }));
 
 vi.mock("@workermailer/smtp", () => ({
-	WorkerMailer: { send: sendMock },
+	WorkerMailer: { connect: connectMock },
 }));
 
 import { sendEmail } from "../workers/email-sender";
@@ -19,8 +21,12 @@ const smtpEnv = {
 
 describe("Zoho SMTP sender", () => {
 	beforeEach(() => {
+		connectMock.mockReset();
 		sendMock.mockReset();
-		sendMock.mockResolvedValue({ accepted: true });
+		closeMock.mockReset();
+		sendMock.mockResolvedValue(undefined);
+		closeMock.mockResolvedValue(undefined);
+		connectMock.mockResolvedValue({ send: sendMock, close: closeMock });
 	});
 
 	it("uses authenticated STARTTLS and preserves recipients, headers, and attachments", async () => {
@@ -43,8 +49,10 @@ describe("Zoho SMTP sender", () => {
 			}],
 		});
 
+		expect(connectMock).toHaveBeenCalledTimes(1);
+		const [options] = connectMock.mock.calls[0];
 		expect(sendMock).toHaveBeenCalledTimes(1);
-		const [options, message] = sendMock.mock.calls[0];
+		const [message] = sendMock.mock.calls[0];
 		expect(options).toMatchObject({
 			host: "smtp.zoho.in",
 			port: 587,
@@ -74,6 +82,7 @@ describe("Zoho SMTP sender", () => {
 				cid: "report",
 			}],
 		});
+		expect(closeMock).toHaveBeenCalledTimes(1);
 	});
 
 	it("uses implicit TLS on port 465", async () => {
@@ -84,11 +93,12 @@ describe("Zoho SMTP sender", () => {
 			text: "Hello",
 		});
 
-		expect(sendMock.mock.calls[0][0]).toMatchObject({
+		expect(connectMock.mock.calls[0][0]).toMatchObject({
 			port: 465,
 			secure: true,
 			startTls: false,
 		});
+		expect(closeMock).toHaveBeenCalledTimes(1);
 	});
 
 	it("rejects incomplete SMTP configuration without attempting delivery", async () => {
@@ -99,7 +109,7 @@ describe("Zoho SMTP sender", () => {
 			text: "Hello",
 		})).rejects.toThrow("Zoho SMTP is not fully configured");
 
-		expect(sendMock).not.toHaveBeenCalled();
+		expect(connectMock).not.toHaveBeenCalled();
 	});
 
 	it("rejects a From address that is not the authenticated Zoho account", async () => {
@@ -110,6 +120,18 @@ describe("Zoho SMTP sender", () => {
 			text: "Hello",
 		})).rejects.toThrow("authorized Zoho alias");
 
-		expect(sendMock).not.toHaveBeenCalled();
+		expect(connectMock).not.toHaveBeenCalled();
+	});
+
+	it("closes the SMTP connection when sending fails", async () => {
+		sendMock.mockRejectedValueOnce(new Error("SMTP rejected recipient"));
+		await expect(sendEmail(smtpEnv, {
+			from: "mail@neerajsingh.me",
+			to: "recipient@example.com",
+			subject: "Failure case",
+			text: "Hello",
+		})).rejects.toThrow("SMTP rejected recipient");
+
+		expect(closeMock).toHaveBeenCalledTimes(1);
 	});
 });
