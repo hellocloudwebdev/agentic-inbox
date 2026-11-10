@@ -20,6 +20,36 @@
 		"ZOHO_SMTP_PORT": "587",
 		"ZOHO_SMTP_USERNAME": "mail@neerajsingh.me"
 	},
+	"previews": {
+		// Preview mail must not be routed through production mail delivery.
+		// ZOHO_SMTP_PASSWORD is intentionally not configured for Previews.
+		"vars": {
+			"DOMAINS": "preview.invalid",
+			"EMAIL_ADDRESSES": [],
+			"ZOHO_SMTP_HOST": "smtp.zoho.in",
+			"ZOHO_SMTP_PORT": "587",
+			"ZOHO_SMTP_USERNAME": "mail@neerajsingh.me"
+		},
+		"ai": {
+			"binding": "AI"
+		},
+		"durable_objects": {
+			"bindings": [
+				{
+					"name": "MAILBOX",
+					"class_name": "MailboxDO"
+				},
+				{
+					"name": "EMAIL_AGENT",
+					"class_name": "EmailAgent"
+				},
+				{
+					"name": "EMAIL_MCP",
+					"class_name": "EmailMCP"
+				}
+			]
+		}
+	},
 	"ai": {
 		"binding": "AI"
 	},
