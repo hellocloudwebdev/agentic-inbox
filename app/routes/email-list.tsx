@@ -32,6 +32,7 @@ import {
   useUpdateEmail,
 } from "~/queries/emails";
 import { useFolders } from "~/queries/folders";
+import { useMailbox } from "~/queries/mailboxes";
 import { queryKeys } from "~/queries/keys";
 import { useUIStore } from "~/hooks/useUIStore";
 import type { Email } from "~/types";
@@ -173,6 +174,15 @@ export default function EmailListRoute() {
   const emails = emailData?.emails ?? [];
   const totalCount = emailData?.totalCount ?? 0;
   const { data: folders = [] } = useFolders(mailboxId);
+  const { data: mailbox } = useMailbox(mailboxId);
+  const selfIdentity = {
+    email: mailbox?.email || mailboxId || "",
+    name:
+      (typeof mailbox?.settings?.fromName === "string" &&
+        mailbox.settings.fromName.trim()) ||
+      mailbox?.name?.trim() ||
+      "You",
+  };
 
   const folderName = useMemo(() => {
     const found = folders.find((f) => f.id === folder);
@@ -326,7 +336,7 @@ export default function EmailListRoute() {
               const isSelected = selectedEmailId === email.id;
               const unread = hasUnread(email);
               const snippet = getSnippetText(email.snippet, 112);
-              const sender = getSenderIdentity(email.sender, email.raw_headers);
+              const sender = getSenderIdentity(email.sender, email.raw_headers, selfIdentity);
               const participant = sender.name;
 
               return (
