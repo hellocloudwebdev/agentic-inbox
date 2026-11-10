@@ -62,7 +62,10 @@ export async function handleReplyEmail(c: AppContext) {
 			html,
 			text,
 			attachments,
-			headers: buildThreadingHeaders(originalMsgId, references),
+			headers: {
+				"Message-ID": "<" + outgoingMessageId + ">",
+				...buildThreadingHeaders(originalMsgId, references),
+			},
 		});
 	} catch (e) {
 		const details = e instanceof Error ? e.message : String(e);
@@ -144,6 +147,7 @@ export async function handleForwardEmail(c: AppContext) {
 			html,
 			text,
 			attachments,
+			headers: { "Message-ID": "<" + outgoingMessageId + ">" },
 		});
 	} catch (e) {
 		const details = e instanceof Error ? e.message : String(e);
