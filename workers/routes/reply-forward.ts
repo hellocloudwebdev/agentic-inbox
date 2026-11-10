@@ -46,14 +46,29 @@ export async function handleReplyEmail(c: AppContext) {
 	}
 
 	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
-
-	const rateLimitError = await (stub as unknown as RateLimitStub)
-		.checkSendRateLimit();
-	if (rateLimitError) {
-		return c.json({ error: rateLimitError }, 429);
-	}
+	const rateLimitError = await (stub as unknown as RateLimitStub).checkSendRateLimit();
+	if (rateLimitError) return c.json({ error: rateLimitError }, 429);
 
 	const attachmentData = prepareAttachments(messageId, attachments);
+	const sentAt = new Date().toISOString();
+
+	try {
+		await sendEmail(c.env, {
+			to,
+			cc,
+			bcc,
+			from,
+			subject,
+			html,
+			text,
+			attachments,
+			headers: buildThreadingHeaders(originalMsgId, references),
+		});
+	} catch (e) {
+		const details = e instanceof Error ? e.message : String(e);
+		console.error("Zoho SMTP reply delivery failed:", details);
+		return c.json({ error: "Reply delivery failed", details }, 502);
+	}
 
 	await stub.createEmail(
 		Folders.SENT,
@@ -64,52 +79,29 @@ export async function handleReplyEmail(c: AppContext) {
 			recipient: toStr,
 			cc: cc ? (Array.isArray(cc) ? cc.join(", ") : cc).toLowerCase() : null,
 			bcc: bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc).toLowerCase() : null,
-			date: new Date().toISOString(),
+			date: sentAt,
 			body: html || text || "",
 			in_reply_to: originalMsgId,
 			email_references: JSON.stringify(references),
-			thread_id: thread_id,
+			thread_id,
 			message_id: outgoingMessageId,
 			raw_headers: JSON.stringify([
-				{ key: "from", value: typeof from === "string" ? from : `${from.name} <${from.email}>` },
+				{ key: "from", value: typeof from === "string" ? from : from.name + " <" + from.email + ">" },
 				{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
 				...(cc ? [{ key: "cc", value: Array.isArray(cc) ? cc.join(", ") : cc }] : []),
 				...(bcc ? [{ key: "bcc", value: Array.isArray(bcc) ? bcc.join(", ") : bcc }] : []),
 				{ key: "subject", value: subject },
-				{ key: "date", value: new Date().toISOString() },
-				{ key: "message-id", value: `<${outgoingMessageId}>` },
-				...(originalMsgId ? [{ key: "in-reply-to", value: `<${originalMsgId}>` }] : []),
-				...(references.length > 0 ? [{ key: "references", value: references.map((r: string) => `<${r}>`).join(" ") }] : []),
+				{ key: "date", value: sentAt },
+				{ key: "message-id", value: "<" + outgoingMessageId + ">" },
+				...(originalMsgId ? [{ key: "in-reply-to", value: "<" + originalMsgId + ">" }] : []),
+				...(references.length > 0 ? [{ key: "references", value: references.map((r: string) => "<" + r + ">").join(" ") }] : []),
 			]),
 		},
 		attachmentData,
 	);
 
 	await stub.markThreadRead(thread_id);
-
-	c.executionCtx.waitUntil(
-		sendEmail(c.env.EMAIL, {
-			to,
-			cc,
-			bcc,
-			from,
-			subject,
-			html,
-			text,
-			attachments: attachments?.map((att) => ({
-				content: att.content,
-				filename: att.filename,
-				type: att.type,
-				disposition: att.disposition,
-				contentId: att.contentId,
-			})),
-			headers: buildThreadingHeaders(originalMsgId, references),
-		}).catch((e) => {
-			console.error("Deferred reply delivery failed:", (e as Error).message);
-		}),
-	);
-
-	return c.json({ id: messageId, status: "sent" }, 202);
+	return c.json({ id: messageId, status: "sent" }, 200);
 }
 
 export async function handleForwardEmail(c: AppContext) {
@@ -136,14 +128,28 @@ export async function handleForwardEmail(c: AppContext) {
 	}
 
 	const { messageId, outgoingMessageId } = generateMessageId(fromDomain);
-
-	const rateLimitError = await (stub as unknown as RateLimitStub)
-		.checkSendRateLimit();
-	if (rateLimitError) {
-		return c.json({ error: rateLimitError }, 429);
-	}
+	const rateLimitError = await (stub as unknown as RateLimitStub).checkSendRateLimit();
+	if (rateLimitError) return c.json({ error: rateLimitError }, 429);
 
 	const attachmentData = prepareAttachments(messageId, attachments);
+	const sentAt = new Date().toISOString();
+
+	try {
+		await sendEmail(c.env, {
+			to,
+			cc,
+			bcc,
+			from,
+			subject,
+			html,
+			text,
+			attachments,
+		});
+	} catch (e) {
+		const details = e instanceof Error ? e.message : String(e);
+		console.error("Zoho SMTP forward delivery failed:", details);
+		return c.json({ error: "Forward delivery failed", details }, 502);
+	}
 
 	await stub.createEmail(
 		Folders.SENT,
@@ -154,45 +160,24 @@ export async function handleForwardEmail(c: AppContext) {
 			recipient: toStr,
 			cc: cc ? (Array.isArray(cc) ? cc.join(", ") : cc).toLowerCase() : null,
 			bcc: bcc ? (Array.isArray(bcc) ? bcc.join(", ") : bcc).toLowerCase() : null,
-			date: new Date().toISOString(),
+			date: sentAt,
 			body: html || text || "",
 			in_reply_to: null,
 			email_references: null,
 			thread_id: messageId,
 			message_id: outgoingMessageId,
 			raw_headers: JSON.stringify([
-				{ key: "from", value: typeof from === "string" ? from : `${from.name} <${from.email}>` },
+				{ key: "from", value: typeof from === "string" ? from : from.name + " <" + from.email + ">" },
 				{ key: "to", value: Array.isArray(to) ? to.join(", ") : to },
 				...(cc ? [{ key: "cc", value: Array.isArray(cc) ? cc.join(", ") : cc }] : []),
 				...(bcc ? [{ key: "bcc", value: Array.isArray(bcc) ? bcc.join(", ") : bcc }] : []),
 				{ key: "subject", value: subject },
-				{ key: "date", value: new Date().toISOString() },
-				{ key: "message-id", value: `<${outgoingMessageId}>` },
+				{ key: "date", value: sentAt },
+				{ key: "message-id", value: "<" + outgoingMessageId + ">" },
 			]),
 		},
 		attachmentData,
 	);
 
-	c.executionCtx.waitUntil(
-		sendEmail(c.env.EMAIL, {
-			to,
-			cc,
-			bcc,
-			from,
-			subject,
-			html,
-			text,
-			attachments: attachments?.map((att) => ({
-				content: att.content,
-				filename: att.filename,
-				type: att.type,
-				disposition: att.disposition,
-				contentId: att.contentId,
-			})),
-		}).catch((e) => {
-			console.error("Deferred forward delivery failed:", (e as Error).message);
-		}),
-	);
-
-	return c.json({ id: messageId, status: "sent" }, 202);
+	return c.json({ id: messageId, status: "sent" }, 200);
 }
