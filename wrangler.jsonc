@@ -20,12 +20,6 @@
 		"ZOHO_SMTP_PORT": "587",
 		"ZOHO_SMTP_USERNAME": "mail@neerajsingh.me"
 	},
-	"send_email": [
-		{
-			"name": "EMAIL",
-			"remote": true
-		}
-	],
 	"ai": {
 		"binding": "AI"
 	},

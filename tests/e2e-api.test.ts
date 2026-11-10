@@ -2,7 +2,18 @@
 // Licensed under the Apache 2.0 license found in the LICENSE file or at:
 //     https://opensource.org/licenses/Apache-2.0
 
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+
+// This suite exercises API and storage behavior in Node; isolate the Worker-only
+// SMTP transport so Node does not try to load Cloudflare's cloudflare:sockets module.
+vi.mock("@workermailer/smtp", () => ({
+	WorkerMailer: {
+		connect: vi.fn(async () => ({
+			send: vi.fn(async () => undefined),
+			close: vi.fn(async () => undefined),
+		})),
+	},
+}));
 import { app } from "../workers/index";
 import { createMockNeonClient, createMockNeonStore, type MockNeonStore } from "./mock-neon-db";
 import { getNeonDb, ensureNeonSchema, resetMigrationCache } from "../workers/db/neon-client";

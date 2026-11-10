@@ -400,7 +400,7 @@ export async function toolSendReply(
 		bodyHtml: string;
 	},
 ): Promise<
-	| { status: "sent"; messageId: string; message: string }
+	| { status: "sent"; messageId: string; message: string; warning?: string }
 	| { error: string }
 > {
 	const stub = getMailboxStub(env, mailboxId);
@@ -434,35 +434,48 @@ export async function toolSendReply(
 	const fullBodyHtml = sanitizedBody + quotedBlock;
 
 	try {
-		await sendEmail(env.EMAIL, {
+		await sendEmail(env, {
 			to: params.to,
 			from: mailboxId,
 			subject: params.subject,
 			html: fullBodyHtml,
-			headers: buildThreadingHeaders(originalMsgId, references),
+			headers: {
+				"Message-ID": "<" + outgoingMessageId + ">",
+				...buildThreadingHeaders(originalMsgId, references),
+			},
 		});
 	} catch (e) {
 		console.error("Email send failed:", (e as Error).message);
 		return { error: `Failed to send reply: ${(e as Error).message}` };
 	}
 
-	await stub.createEmail(
-		Folders.SENT,
-		{
-			id: messageId,
-			subject: params.subject,
-			sender: mailboxId.toLowerCase(),
-			recipient: params.to.toLowerCase(),
-			date: new Date().toISOString(),
-			body: fullBodyHtml,
-			in_reply_to: originalMsgId,
-			email_references:
-				references.length > 0 ? JSON.stringify(references) : null,
-			thread_id: threadId,
-			message_id: outgoingMessageId,
-		},
-		[],
-	);
+	try {
+		await stub.createEmail(
+			Folders.SENT,
+			{
+				id: messageId,
+				subject: params.subject,
+				sender: mailboxId.toLowerCase(),
+				recipient: params.to.toLowerCase(),
+				date: new Date().toISOString(),
+				body: fullBodyHtml,
+				in_reply_to: originalMsgId,
+				email_references:
+					references.length > 0 ? JSON.stringify(references) : null,
+				thread_id: threadId,
+				message_id: outgoingMessageId,
+			},
+			[],
+		);
+	} catch (e) {
+		console.error("Zoho accepted agent reply but Sent copy could not be saved:", e instanceof Error ? e.message : String(e));
+		return {
+			status: "sent",
+			messageId,
+			message: `Reply sent to ${params.to}`,
+			warning: "Zoho accepted the reply, but Agentic Inbox could not save its Sent copy. Do not resend.",
+		};
+	}
 
 	return { status: "sent", messageId, message: `Reply sent to ${params.to}` };
 }
@@ -478,7 +491,7 @@ export async function toolSendEmail(
 		bodyHtml: string;
 	},
 ): Promise<
-	| { status: "sent"; messageId: string; message: string }
+	| { status: "sent"; messageId: string; message: string; warning?: string }
 	| { error: string }
 > {
 	const stub = getMailboxStub(env, mailboxId);
@@ -499,33 +512,44 @@ export async function toolSendEmail(
 	}
 
 	try {
-		await sendEmail(env.EMAIL, {
+		await sendEmail(env, {
 			to: params.to,
 			from: mailboxId,
 			subject: params.subject,
 			html: sanitizedBody,
+			headers: { "Message-ID": "<" + outgoingMessageId + ">" },
 		});
 	} catch (e) {
 		console.error("Email send failed:", (e as Error).message);
 		return { error: `Failed to send email: ${(e as Error).message}` };
 	}
 
-	await stub.createEmail(
-		Folders.SENT,
-		{
-			id: messageId,
-			subject: params.subject,
-			sender: mailboxId.toLowerCase(),
-			recipient: params.to.toLowerCase(),
-			date: new Date().toISOString(),
-			body: sanitizedBody,
-			in_reply_to: null,
-			email_references: null,
-			thread_id: messageId,
-			message_id: outgoingMessageId,
-		},
-		[],
-	);
+	try {
+		await stub.createEmail(
+			Folders.SENT,
+			{
+				id: messageId,
+				subject: params.subject,
+				sender: mailboxId.toLowerCase(),
+				recipient: params.to.toLowerCase(),
+				date: new Date().toISOString(),
+				body: sanitizedBody,
+				in_reply_to: null,
+				email_references: null,
+				thread_id: messageId,
+				message_id: outgoingMessageId,
+			},
+			[],
+		);
+	} catch (e) {
+		console.error("Zoho accepted agent email but Sent copy could not be saved:", e instanceof Error ? e.message : String(e));
+		return {
+			status: "sent",
+			messageId,
+			message: `Email sent to ${params.to}`,
+			warning: "Zoho accepted the email, but Agentic Inbox could not save its Sent copy. Do not resend.",
+		};
+	}
 
 	return { status: "sent", messageId, message: `Email sent to ${params.to}` };
 }
