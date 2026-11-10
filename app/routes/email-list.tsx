@@ -22,7 +22,9 @@ import { useParams } from "react-router";
 import { Folders } from "shared/folders";
 import { formatListDate } from "shared/dates";
 import MailboxSplitView from "~/components/MailboxSplitView";
+import SenderAvatar from "~/components/SenderAvatar";
 import { getSnippetText } from "~/lib/utils";
+import { getSenderIdentity } from "~/lib/email-identity";
 import {
   useDeleteEmail,
   useEmails,
@@ -79,14 +81,6 @@ const FOLDER_EMPTY_STATES: Record<
       "Deleted emails will appear here. You can restore them or permanently delete them.",
   },
 };
-
-const AVATAR_TONES = [
-  "bg-[#fce8e6] text-[#a34a40]",
-  "bg-[#e5efff] text-[#365e9d]",
-  "bg-[#f6e8fa] text-[#80518f]",
-  "bg-[#e5f4ed] text-[#39785b]",
-  "bg-[#fff0d9] text-[#946528]",
-];
 
 function EmailListSkeleton() {
   return (
@@ -285,17 +279,7 @@ export default function EmailListRoute() {
     handleRowClick,
   ]);
 
-  const formatParticipants = (email: Email): string => {
-    if (email.participants) {
-      const names = email.participants
-        .split(",")
-        .map((p) => p.trim().split("@")[0])
-        .filter((name, idx, arr) => arr.indexOf(name) === idx);
-      if (names.length <= 3) return names.join(", ");
-      return `${names.slice(0, 2).join(", ")} +${names.length - 2}`;
-    }
-    return email.sender.split("@")[0];
-  };
+
 
   return (
     <MailboxSplitView
@@ -342,11 +326,8 @@ export default function EmailListRoute() {
               const isSelected = selectedEmailId === email.id;
               const unread = hasUnread(email);
               const snippet = getSnippetText(email.snippet, 112);
-              const participant = formatParticipants(email);
-              const avatarTone =
-                AVATAR_TONES[
-                  Math.abs(email.sender.charCodeAt(0) || 0) % AVATAR_TONES.length
-                ];
+              const sender = getSenderIdentity(email.sender, email.raw_headers);
+              const participant = sender.name;
 
               return (
                 <div
@@ -366,12 +347,12 @@ export default function EmailListRoute() {
                       : "border-l-transparent hover:bg-[#fafbfe]"
                   }`}
                 >
-                  <div
-                    className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${avatarTone}`}
-                    aria-hidden="true"
-                  >
-                    {participant.slice(0, 1).toUpperCase()}
-                  </div>
+                  <SenderAvatar
+                    email={sender.email || email.sender}
+                    name={sender.name}
+                    size={36}
+                    className="mt-0.5"
+                  />
 
                   <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-1.5">
