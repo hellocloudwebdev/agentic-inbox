@@ -1,7 +1,7 @@
 # Clerk server-side verification. Copy the PEM JWT public key from Clerk Dashboard -> API keys -> Show JWT public key.
 CLERK_JWT_KEY="-----BEGIN PUBLIC KEY-----\nreplace-with-your-clerk-jwt-public-key\n-----END PUBLIC KEY-----"
 CLERK_ALLOWED_EMAIL=hellocloud.webdev@gmail.com
-CLERK_PUBLISHABLE_KEY=pk_test_replace_me
+CLERK_PUBLISHABLE_KEY=pk_test_Y2FwYWJsZS1yYW0tNTk2MS5jbGVyay5hY2NvdW50cy5kZXYk
 
 # Neon PostgreSQL connection string (pooled or direct serverless connection)
 DATABASE_URL=postgresql://user:password@ep-sample-123456.us-east-2.aws.neon.tech/neondb?sslmode=require
