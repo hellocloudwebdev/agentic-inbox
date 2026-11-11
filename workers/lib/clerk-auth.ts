@@ -46,12 +46,13 @@ export async function authenticateClerkRequest(
     });
 
     const email =
-      typeof payload.primaryEmail === "string"
-        ? payload.primaryEmail.trim().toLowerCase()
+      typeof payload.email === "string"
+        ? payload.email.trim().toLowerCase()
         : "";
 
     if (
       !payload.sub ||
+      payload.email_verified !== true ||
       !email ||
       email !== env.CLERK_ALLOWED_EMAIL.trim().toLowerCase()
     ) {
