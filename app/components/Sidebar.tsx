@@ -141,15 +141,23 @@ export default function Sidebar() {
           onClick={() => startCompose()}
           aria-label="Compose email"
           title="Compose email"
-          className="group relative flex h-[49px] w-full items-center gap-2.5 overflow-hidden rounded-xl border-0 px-3.5 py-0 text-left text-white shadow-[0_5px_14px_rgba(18,143,224,0.20)] transition-all hover:-translate-y-px hover:shadow-[0_8px_18px_rgba(18,143,224,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#72b5ed] focus-visible:ring-offset-2"
-          style={{
-            backgroundImage:
-              "linear-gradient(90deg, rgba(8,112,190,0.94) 0%, rgba(8,112,190,0.76) 48%, rgba(8,64,91,0.18) 100%), url('/images/compose-landscape-hq.webp')",
-            backgroundSize: "cover",
-            backgroundPosition: "center 55%",
-            backgroundRepeat: "no-repeat",
-          }}
+          className="group relative flex h-[49px] w-full items-center gap-2.5 overflow-hidden rounded-xl border-0 bg-[#0870be] px-3.5 py-0 text-left text-white shadow-[0_5px_14px_rgba(18,143,224,0.20)] transition-all hover:-translate-y-px hover:shadow-[0_8px_18px_rgba(18,143,224,0.26)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#72b5ed] focus-visible:ring-offset-2"
         >
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 w-[48%] overflow-hidden"
+          >
+            <img
+              src="/images/compose-landscape-hq.webp"
+              alt=""
+              draggable={false}
+              className="h-full w-full object-cover object-center"
+            />
+          </span>
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[#0870be] via-[#0870be]/90 to-[#0870be]/10"
+          />
           <EnvelopeSimpleIcon
             size={17}
             weight="bold"
