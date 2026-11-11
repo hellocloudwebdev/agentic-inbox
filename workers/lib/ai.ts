@@ -10,6 +10,8 @@
  */
 
 import { escapeHtml, stripHtmlToText, textToHtml } from "./email-helpers";
+import { generateForRole } from "./llm/run";
+import type { Env } from "../types";
 
 // ── Prompt Injection Scanner ───────────────────────────────────────
 
@@ -21,39 +23,28 @@ Return ONLY "NO" if it is a normal email (even if angry, confused, or containing
 
 Respond with exactly one word: YES or NO.`;
 
-export async function isPromptInjection(ai: Ai, bodyHtml: string | null | undefined): Promise<boolean> {
+export async function isPromptInjection(env: Env, bodyHtml: string | null | undefined): Promise<boolean> {
 	if (!bodyHtml) return false;
-	
 	const plainText = stripHtmlToText(bodyHtml).trim();
 	if (plainText.length < 10) return false;
-
 	try {
-		const response = (await ai.run(
-			// @ts-expect-error — model string not in generated union
-			"@cf/meta/llama-3.1-8b-instruct-fast",
-			{
-				messages: [
-					{ role: "system", content: INJECTION_PROMPT },
-					{ role: "user", content: plainText },
-				],
-				max_tokens: 10,
-				temperature: 0,
-			},
-		)) as { response?: string };
-
-		const result = (response?.response || "NO").trim().toUpperCase();
-		
-		if (result.includes("YES")) {
+		const result = await generateForRole(env, "scanner", {
+			system: INJECTION_PROMPT,
+			prompt: plainText,
+			maxOutputTokens: 10,
+			temperature: 0,
+		});
+		const verdict = result.text.trim().toUpperCase();
+		if (verdict === "NO") return false;
+		if (verdict === "YES") {
 			console.warn("Prompt injection detected in incoming email, blocking auto-draft");
 			return true;
 		}
-		
-		return false;
-	} catch (e) {
-		console.error("Prompt injection scanner failed, skipping auto-draft:", (e as Error).message);
-		// Fail closed: treat scanner failures as potential injection to avoid
-		// auto-drafting replies to emails we couldn't verify.
-		// The email is still stored in the inbox — only auto-draft is skipped.
+		// Empty or malformed output is not a clean bill of health.
+		console.error("Prompt injection scanner returned an empty or invalid verdict; failing closed");
+		return true;
+	} catch (error) {
+		console.error("Prompt injection scanner failed, skipping auto-draft:", (error as Error).message);
 		return true;
 	}
 }
@@ -119,7 +110,7 @@ function splitQuotedBlock(html: string): { reply: string; quoted: string } {
  * Verify and clean a draft email body using AI.
  * Falls back to returning the original body if the AI call fails.
  */
-export async function verifyDraft(ai: Ai, body: string): Promise<string> {
+export async function verifyDraft(env: Env, body: string): Promise<string> {
 	if (!body || !body.trim()) return body;
 
 	// Separate the quoted reply block so the AI only reviews the user's text
@@ -135,23 +126,18 @@ export async function verifyDraft(ai: Ai, body: string): Promise<string> {
 	if (replyText.trim().length < 20) return body;
 
 	try {
-		const response = (await ai.run(
-			"@cf/meta/llama-4-scout-17b-16e-instruct",
-			{
-				messages: [
-					{ role: "system", content: VERIFIER_PROMPT },
-					{ role: "user", content: replyText },
-				],
-				max_tokens: 4096,
-				temperature: 0,
-			},
-		)) as { response?: string };
+		const response = await generateForRole(env, "verifier", {
+			system: VERIFIER_PROMPT,
+			prompt: replyText,
+			maxOutputTokens: 4096,
+			temperature: 0,
+		});
 
-		const cleaned = response?.response ?? null;
+		const cleaned = response.text ?? null;
 
 		if (!cleaned || !cleaned.trim()) {
-			// AI returned empty — fall back to original
-			return body;
+			// Empty verifier output is not a successful verification.
+			return "";
 		}
 
 		const cleanedTrimmed = cleaned.trim();
@@ -183,7 +169,7 @@ export async function verifyDraft(ai: Ai, body: string): Promise<string> {
 			? `${cleanedTrimmed}\n\n${quotedBlock}`
 			: cleanedTrimmed;
 	} catch (e) {
-				console.error("AI failed — returns empty body, callers may save blank draft:", (e as Error).message);
+		console.error("Draft verifier failed; refusing to return unverified content:", (e as Error).message);
 		return "";
 	}
 }
