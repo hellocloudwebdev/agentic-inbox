@@ -8,7 +8,8 @@ import {
 	convertToModelMessages,
 	stepCountIs,
 } from "ai";
-import { resolveRole } from "../lib/llm/registry";
+import { defaultWorkersModel, loadLlmConfig, resolveRole } from "../lib/llm/registry";
+import { createWorkersAI } from "workers-ai-provider";
 import { generateForRole } from "../lib/llm/run";
 import type { AgentSkill } from "../lib/llm/types";
 import { z } from "zod";
@@ -315,7 +316,15 @@ export class EmailAgent extends AIChatAgent<any> {
 		const tools = createEmailTools(env, mailboxId);
 		const systemPrompt = await getSystemPrompt(env, mailboxId);
 
-		const chatModel = await resolveRole(env, "chat");
+		let chatModel;
+		try {
+			chatModel = await resolveRole(env, "chat");
+		} catch (error) {
+			const config = await loadLlmConfig(env);
+			if (!config.fallbackToWorkersAi || config.routing.chat.providerId === "workers-ai") throw error;
+			console.warn("Chat provider could not be resolved; using Workers AI fallback", error);
+			chatModel = createWorkersAI({ binding: env.AI })(defaultWorkersModel("chat"));
+		}
 		const result = streamText({
 			model: chatModel,
 			system: systemPrompt,
