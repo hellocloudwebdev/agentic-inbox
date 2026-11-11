@@ -11,14 +11,17 @@ import {
 	TooltipProvider,
 } from "@cloudflare/kumo";
 import { WarningIcon } from "@phosphor-icons/react";
+import { ClerkProvider, useAuth } from "@clerk/react-router";
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { forwardRef, useState } from "react";
 import {
 	isRouteErrorResponse,
 	Links,
 	Meta,
+	Navigate,
 	Outlet,
 	Link as RouterLink,
+	useLocation,
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
@@ -61,6 +64,22 @@ function getQueryClient() {
 	// Browser: reuse the same client across navigations
 	if (!browserQueryClient) browserQueryClient = makeQueryClient();
 	return browserQueryClient;
+}
+
+function AuthenticatedOutlet() {
+	const { isLoaded, isSignedIn } = useAuth();
+	const location = useLocation();
+	const isSignInRoute = location.pathname === "/sign-in" || location.pathname.startsWith("/sign-in/");
+
+	if (isSignInRoute) return <Outlet />;
+	if (!isLoaded) {
+		return <div className="flex min-h-screen items-center justify-center"><Loader size="lg" /></div>;
+	}
+	if (!isSignedIn) {
+		const returnTo = location.pathname + location.search;
+		return <Navigate to={`/sign-in?redirect_url=${encodeURIComponent(returnTo)}`} replace />;
+	}
+	return <Outlet />;
 }
 
 const KumoLink = forwardRef<
@@ -116,19 +135,28 @@ export function HydrateFallback() {
 }
 
 export default function App() {
-	// Use useState to ensure each SSR request gets a fresh client while the
-	// browser reuses the same singleton across navigations.
 	const [queryClient] = useState(getQueryClient);
+	const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+	if (!publishableKey) {
+		return (
+			<div className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-3 px-6 text-center">
+				<h1 className="text-xl font-semibold">Authentication is not configured</h1>
+				<p className="text-sm text-kumo-subtle">Set VITE_CLERK_PUBLISHABLE_KEY in the build environment to enable Google sign-in.</p>
+			</div>
+		);
+	}
+
 	return (
-		<QueryClientProvider client={queryClient}>
-			<LinkProvider component={KumoLink}>
-				<TooltipProvider>
-					<Toasty>
-						<Outlet />
-					</Toasty>
-				</TooltipProvider>
-			</LinkProvider>
-		</QueryClientProvider>
+		<ClerkProvider publishableKey={publishableKey}>
+			<QueryClientProvider client={queryClient}>
+				<LinkProvider component={KumoLink}>
+					<TooltipProvider>
+						<Toasty><AuthenticatedOutlet /></Toasty>
+					</TooltipProvider>
+				</LinkProvider>
+			</QueryClientProvider>
+		</ClerkProvider>
 	);
 }
 
