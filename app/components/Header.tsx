@@ -3,6 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import { Button, Tooltip } from "@cloudflare/kumo";
+import { UserButton } from "@clerk/react-router";
 import {
   CaretDownIcon,
   CheckIcon,
@@ -317,6 +318,7 @@ export default function Header() {
               className="rounded-lg"
             />
           </Tooltip>
+          <<div className="px-1"><UserButton /></div>
           <Tooltip content="Settings" side="bottom" asChild>
             <Button
               variant={isSettingsActive ? "secondary" : "ghost"}
