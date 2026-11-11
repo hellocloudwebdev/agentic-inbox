@@ -2,7 +2,7 @@ import { assertSafeProviderUrl } from "./safe-url";
 import type { ProviderKind } from "./types";
 export async function fetchProviderModels(input: { baseUrl: string; kind: ProviderKind; apiKey: string }): Promise<string[]> {
  const base=assertSafeProviderUrl(input.baseUrl);
- const endpoint=new URL("/models",base);
+ const endpoint=new URL("models",base.toString().replace(/\\/?$/,"/"));
  const headers:Record<string,string> = input.kind==="anthropic"
   ? {"x-api-key":input.apiKey,"anthropic-version":"2023-06-01"}
   : {Authorization:`Bearer ${input.apiKey}`};
