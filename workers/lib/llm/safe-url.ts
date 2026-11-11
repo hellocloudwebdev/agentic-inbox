@@ -13,7 +13,7 @@ export function assertSafeProviderUrl(input: string): URL {
   let url: URL;
   try { url = new URL(input); } catch { throw new Error("Provider URL must be a valid HTTPS URL"); }
   const host = url.hostname.toLowerCase().replace(/^\[|\]$/g, "");
-  if (url.protocol !== "https:" || url.username || url.password || url.port && url.port !== "443") {
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash || (url.port && url.port !== "443")) {
     throw new Error("Provider URL must use public HTTPS without embedded credentials or custom ports");
   }
   if (PRIVATE_HOSTS.has(host) || host.endsWith(".localhost") || host.endsWith(".local") ||
