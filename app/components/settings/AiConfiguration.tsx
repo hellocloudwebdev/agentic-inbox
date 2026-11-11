@@ -37,9 +37,9 @@ const roles = ["chat", "draft", "verifier", "scanner"] as const;
 
 function filenameToSkillName(filename: string) {
   return filename
-    .replace(/\\.[^.]+$/, "")
+    .replace(/\.[^.]+$/, "")
     .replace(/[-_]+/g, " ")
-    .replace(/\\b\\w/g, (letter) => letter.toUpperCase());
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 function readFrontmatterValue(frontmatter: string, key: string): string | undefined {
