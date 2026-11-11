@@ -16,7 +16,7 @@ function parseModels(payload: unknown): ProviderModel[] {
     if (!item || typeof item !== "object") return null;
     const row = item as { id?: unknown; name?: unknown };
     const id = typeof row.id === "string" ? row.id : typeof row.name === "string" ? row.name : "";
-    return id ? { id, ...(typeof row.name === "string" ? { name: row.name } : {}) } : null;
+    return id ? { id, ...(typeof row.name === "string" && row.name !== id ? { name: row.name } : {}) } : null;
   }).filter((item): item is ProviderModel => !!item);
 }
 export async function fetchProviderModels(input: {
