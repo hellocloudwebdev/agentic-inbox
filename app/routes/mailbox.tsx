@@ -4,6 +4,7 @@
 
 import { useEffect, useRef } from "react";
 import { Outlet, useParams } from "react-router";
+import { XIcon } from "@phosphor-icons/react";
 import AgentSidebar from "~/components/AgentSidebar";
 import ComposeEmail from "~/components/ComposeEmail";
 import Header from "~/components/Header";
@@ -40,7 +41,7 @@ export default function MailboxRoute() {
   }, [mailboxId, closeComposeModal, closePanel, closeSidebar]);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-[#f6f7fb]">
+    <div className="flex h-[100dvh] min-h-[100svh] overflow-hidden bg-[#f6f7fb]">
       {/* Compact app rail: desktop only. */}
       <WorkspaceRail />
 
@@ -73,11 +74,37 @@ export default function MailboxRoute() {
         </main>
       </div>
 
-      {/* AI agent stays in its own resizable-feeling workspace column. */}
+      {/* AI agent is a side panel on desktop and a full-screen workspace on phones. */}
       {isAgentPanelOpen && (
-        <div className="hidden w-[360px] shrink-0 flex-col overflow-hidden border-l border-[#e7eaf0] bg-white lg:flex">
-          <AgentSidebar />
-        </div>
+        <>
+          <div className="hidden w-[360px] shrink-0 flex-col overflow-hidden border-l border-[#e7eaf0] bg-white lg:flex">
+            <AgentSidebar />
+          </div>
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-label="AI assistant"
+            className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-white lg:hidden"
+          >
+            <div className="flex h-14 shrink-0 items-center justify-between border-b border-[#e7eaf0] px-4">
+              <div className="min-w-0">
+                <h2 className="text-sm font-semibold text-[#202b3c]">AI assistant</h2>
+                <p className="text-[11px] text-[#929bad]">Your inbox copilot</p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleAgentPanel}
+                aria-label="Close AI assistant"
+                className="flex h-10 w-10 items-center justify-center rounded-xl text-[#667085] transition-colors hover:bg-[#f2f4f7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#9bb8fa]"
+              >
+                <XIcon size={20} />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <AgentSidebar />
+            </div>
+          </section>
+        </>
       )}
 
       <ComposeEmail />

@@ -14,6 +14,7 @@ import {
   RobotIcon,
   TrashIcon,
   TrayIcon,
+  XIcon,
 } from "@phosphor-icons/react";
 import { useMemo, useState } from "react";
 import { NavLink, useParams } from "react-router";
@@ -118,13 +119,13 @@ export default function Sidebar() {
   const handleNavClick = () => closeSidebar();
 
   return (
-    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-[#e7eaf0] bg-[#fbfcfe]">
+    <aside className="flex h-full w-60 shrink-0 flex-col border-r border-[#e7eaf0] bg-[#fbfcfe] pt-[env(safe-area-inset-top)]">
       <div className="px-3 pb-3 pt-4">
         <div className="flex min-w-0 items-center gap-2.5 rounded-xl border border-[#e8ebf1] bg-white px-2.5 py-2 shadow-[0_1px_2px_rgba(16,24,40,0.03)]">
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#dff2f1] text-sm font-semibold text-[#315e6a]">
             {displayName.trim().charAt(0).toUpperCase()}
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="truncate text-[13px] font-semibold text-[#202b3c]">
               {displayName}
             </div>
@@ -132,6 +133,14 @@ export default function Sidebar() {
               {currentMailbox?.email || mailboxId}
             </div>
           </div>
+          <button
+            type="button"
+            onClick={closeSidebar}
+            aria-label="Close folders"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[#7b8798] transition-colors hover:bg-[#f2f4f7] md:hidden"
+          >
+            <XIcon size={18} />
+          </button>
         </div>
       </div>
 
@@ -222,7 +231,7 @@ export default function Sidebar() {
         </div>
       </nav>
 
-      <div className="space-y-1 border-t border-[#e7eaf0] p-2.5">
+      <div className="space-y-1 border-t border-[#e7eaf0] p-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))]">
         <button
           type="button"
           onClick={toggleAgentPanel}

@@ -14,8 +14,8 @@ export default function EmailPanelHeader({
   showThreadCount,
 }: EmailPanelHeaderProps) {
   return (
-    <div className="shrink-0 border-b border-[#edf0f4] bg-white px-5 py-5 md:px-7">
-      <h2 className="text-[19px] font-semibold leading-snug tracking-[-0.025em] text-[#202b3c]">
+    <div className="shrink-0 border-b border-[#edf0f4] bg-white px-4 py-4 sm:px-5 md:px-7 md:py-5">
+      <h2 className="break-words text-[17px] font-semibold leading-snug tracking-[-0.025em] text-[#202b3c] sm:text-[19px]">
         {subject || "(no subject)"}
       </h2>
       {showThreadCount && (

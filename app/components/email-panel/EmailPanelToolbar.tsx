@@ -60,7 +60,7 @@ export default function EmailPanelToolbar({
 	onDelete,
 }: EmailPanelToolbarProps) {
 	return (
-		<div className="flex items-center gap-1 px-3 py-2 border-b border-kumo-line shrink-0 md:px-4">
+		<div className="flex min-w-0 items-center gap-1 overflow-x-auto overscroll-x-contain whitespace-nowrap border-b border-kumo-line px-2 py-2 shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden md:px-4">
 			<Button
 				variant="ghost"
 				shape="square"

@@ -9,6 +9,7 @@ import {
   ArrowsClockwiseIcon,
   EnvelopeOpenIcon,
   EnvelopeSimpleIcon,
+  DotsThreeVerticalIcon,
   FileIcon,
   PaperPlaneTiltIcon,
   PencilSimpleIcon,
@@ -151,6 +152,7 @@ export default function EmailListRoute() {
     startCompose,
   } = useUIStore();
   const [page, setPage] = useState(1);
+  const [mobileActionsEmailId, setMobileActionsEmailId] = useState<string | null>(null);
 
   const queryClient = useQueryClient();
   const updateEmail = useUpdateEmail();
@@ -305,26 +307,37 @@ export default function EmailListRoute() {
             {totalCount.toLocaleString()} conversation{totalCount !== 1 ? "s" : ""}
           </p>
         </div>
-        <Tooltip
-          content={isRefreshing ? "Refreshing..." : "Refresh"}
-          side="bottom"
-          asChild
-        >
+        <div className="flex shrink-0 items-center gap-1">
           <Button
-            variant="ghost"
-            shape="square"
+            variant="primary"
             size="sm"
-            icon={
-              <ArrowsClockwiseIcon
-                size={18}
-                className={isRefreshing ? "animate-spin" : ""}
-              />
-            }
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            aria-label="Refresh"
-          />
-        </Tooltip>
+            icon={<PencilSimpleIcon size={15} />}
+            onClick={() => startCompose()}
+            className="md:hidden"
+          >
+            Compose
+          </Button>
+          <Tooltip
+            content={isRefreshing ? "Refreshing..." : "Refresh"}
+            side="bottom"
+            asChild
+          >
+            <Button
+              variant="ghost"
+              shape="square"
+              size="sm"
+              icon={
+                <ArrowsClockwiseIcon
+                  size={18}
+                  className={isRefreshing ? "animate-spin" : ""}
+                />
+              }
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              aria-label="Refresh"
+            />
+          </Tooltip>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -351,7 +364,7 @@ export default function EmailListRoute() {
                       handleRowClick(email);
                     }
                   }}
-                  className={`group flex w-full cursor-pointer items-start gap-3 border-b border-[#edf0f4] border-l-[3px] px-3.5 py-3.5 text-left transition-colors md:px-4 ${
+                  className={`group relative flex w-full cursor-pointer items-start gap-3 border-b border-[#edf0f4] border-l-[3px] px-3 py-3.5 text-left transition-colors sm:px-3.5 md:px-4 ${
                     isSelected
                       ? "border-l-[#596ce4] bg-[#f3f6ff]"
                       : "border-l-transparent hover:bg-[#fafbfe]"
@@ -417,16 +430,16 @@ export default function EmailListRoute() {
                       type="button"
                       aria-label={email.starred ? "Unstar email" : "Star email"}
                       title={email.starred ? "Unstar" : "Star"}
-                      className="rounded-md border-0 bg-transparent p-1 text-[#a0a8b5] opacity-60 transition-colors hover:bg-white hover:text-[#d29a3c] group-hover:opacity-100"
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border-0 bg-transparent text-[#a0a8b5] transition-colors hover:bg-white hover:text-[#d29a3c] sm:opacity-70 sm:group-hover:opacity-100"
                       onClick={(e) => toggleStar(e, email)}
                     >
                       <StarIcon
-                        size={15}
+                        size={16}
                         weight={email.starred ? "fill" : "regular"}
                         className={email.starred ? "text-[#d29a3c]" : ""}
                       />
                     </button>
-                    <div className="hidden items-center group-hover:flex">
+                    <div className="hidden items-center md:group-hover:flex">
                       <Tooltip content={email.read ? "Mark unread" : "Mark read"} asChild>
                         <Button
                           variant="ghost"
@@ -462,6 +475,59 @@ export default function EmailListRoute() {
                           aria-label="Delete"
                         />
                       </Tooltip>
+                    </div>
+                    <div className="relative md:hidden">
+                      <button
+                        type="button"
+                        aria-label="More email actions"
+                        aria-haspopup="menu"
+                        aria-expanded={mobileActionsEmailId === email.id}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg text-[#8792a4] transition-colors hover:bg-[#f1f4f8]"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMobileActionsEmailId((current) =>
+                            current === email.id ? null : email.id,
+                          );
+                        }}
+                      >
+                        <DotsThreeVerticalIcon size={19} />
+                      </button>
+                      {mobileActionsEmailId === email.id && (
+                        <div
+                          role="menu"
+                          className="absolute right-0 top-full z-30 mt-1 w-44 overflow-hidden rounded-xl border border-[#e6e9ef] bg-white p-1 shadow-[0_12px_32px_rgba(24,35,56,0.16)]"
+                        >
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-[13px] text-[#344054] hover:bg-[#f5f7fa]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (mailboxId) {
+                                updateEmail.mutate({
+                                  mailboxId,
+                                  id: email.id,
+                                  data: { read: !email.read },
+                                });
+                              }
+                              setMobileActionsEmailId(null);
+                            }}
+                          >
+                            {email.read ? "Mark as unread" : "Mark as read"}
+                          </button>
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-[13px] text-[#b42318] hover:bg-[#fef3f2]"
+                            onClick={(e) => {
+                              handleDelete(e, email.id);
+                              setMobileActionsEmailId(null);
+                            }}
+                          >
+                            Delete email
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
