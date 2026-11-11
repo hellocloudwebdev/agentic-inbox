@@ -18,6 +18,7 @@ export function assertSafeProviderUrl(input: string): URL {
   }
   if (PRIVATE_HOSTS.has(host) || host.endsWith(".localhost") || host.endsWith(".local") ||
       host.endsWith(".internal") || host === "0.0.0.0" || host.includes(":") ||
+      /^\d+(?:\.\d+){0,3}$/.test(host) ||
       host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80:") ||
       isPrivateIpv4(host)) {
     throw new Error("Private, local, and link-local provider hosts are not allowed");
