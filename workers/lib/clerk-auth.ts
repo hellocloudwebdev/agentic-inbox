@@ -46,8 +46,8 @@ function getCookie(request: Request, name: string): string | undefined {
 
 /**
  * Verify a Clerk session from the same-origin __session cookie or an
- * Authorization bearer token. The primaryEmail claim must be configured in
- * Clerk's Sessions -> Customize session token dashboard.
+ * Authorization bearer token. The signed email and email_verified claims must
+ * be configured in Clerk's Sessions -> Customize session token dashboard.
  */
 export async function authenticateClerkRequest(
   request: Request,
@@ -65,7 +65,7 @@ export async function authenticateClerkRequest(
     });
 
     return getAllowedClerkUser(
-      payload as Record<string, unknown>,
+      payload as unknown as Record<string, unknown>,
       env.CLERK_ALLOWED_EMAIL,
     );
   } catch {
