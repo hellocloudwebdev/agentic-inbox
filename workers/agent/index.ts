@@ -96,26 +96,27 @@ Use discard_draft to delete drafts that the operator rejects or that are no long
  * Falls back to DEFAULT_SYSTEM_PROMPT if none is configured.
  */
 async function getSystemPrompt(env: Env, mailboxId: string): Promise<string> {
-	try {
-		await ensureNeonSchema(env);
-		const repo = new MailboxRepository(getNeonDb(env));
-		const settings = await repo.getMailboxSettings(mailboxId);
-		if (settings && typeof settings.agentSystemPrompt === "string" && settings.agentSystemPrompt.trim()) {
-			return settings.agentSystemPrompt;
-		}
-	} catch {
-		// Fall through to default
-	}
-	let prompt = DEFAULT_SYSTEM_PROMPT;
-	try {
-		const settings = new AppSettingsRepository(getNeonDb(env));
-		const skills = await settings.getSetting<AgentSkill[]>("agent.skills") ?? [];
-		const always = skills.filter(skill => skill.enabled && skill.mode === "always");
-		if (always.length) prompt += "\\n\\n## Enabled Skills\\n" + always.map(skill => `### ${skill.name}\\n${skill.instructions}`).join("\\n\\n");
-	} catch (error) {
-		console.warn("Could not load agent skills:", (error as Error).message);
-	}
-	return prompt;
+ let prompt = DEFAULT_SYSTEM_PROMPT;
+ try {
+  await ensureNeonSchema(env);
+  const mailboxRepo = new MailboxRepository(getNeonDb(env));
+  const mailboxSettings = await mailboxRepo.getMailboxSettings(mailboxId);
+  if (typeof mailboxSettings?.agentSystemPrompt === "string" && mailboxSettings.agentSystemPrompt.trim()) {
+   prompt = mailboxSettings.agentSystemPrompt;
+  }
+ } catch { /* Use built-in prompt when mailbox settings are unavailable. */ }
+ try {
+  const settingsRepo = new AppSettingsRepository(getNeonDb(env));
+  const skills = await settingsRepo.getSetting<AgentSkill[]>("agent.skills") ?? [];
+  const enabled = skills.filter(skill => skill.enabled);
+  const always = enabled.filter(skill => skill.mode === "always");
+  const onDemand = enabled.filter(skill => skill.mode === "on-demand");
+  if (always.length) prompt += "\\n\\n## Enabled Skills\\n" + always.map(skill => `### ${skill.name}\\n${skill.instructions}`).join("\\n\\n");
+  if (onDemand.length) prompt += "\\n\\n## Available On-demand Skills\\n" + onDemand.map(skill => `- ${skill.name}: ${skill.description}`).join("\\n") + "\\nUse load_skill with the exact skill name to retrieve full instructions when relevant.";
+ } catch (error) {
+  console.warn("Could not load agent skills:", (error as Error).message);
+ }
+ return prompt;
 }
 
 function createEmailTools(env: Env, mailboxId: string) {
