@@ -307,26 +307,37 @@ export default function EmailListRoute() {
             {totalCount.toLocaleString()} conversation{totalCount !== 1 ? "s" : ""}
           </p>
         </div>
-        <Tooltip
-          content={isRefreshing ? "Refreshing..." : "Refresh"}
-          side="bottom"
-          asChild
-        >
+        <div className="flex shrink-0 items-center gap-1">
           <Button
-            variant="ghost"
-            shape="square"
+            variant="primary"
             size="sm"
-            icon={
-              <ArrowsClockwiseIcon
-                size={18}
-                className={isRefreshing ? "animate-spin" : ""}
-              />
-            }
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-            aria-label="Refresh"
-          />
-        </Tooltip>
+            icon={<PencilSimpleIcon size={15} />}
+            onClick={() => startCompose()}
+            className="md:hidden"
+          >
+            Compose
+          </Button>
+          <Tooltip
+            content={isRefreshing ? "Refreshing..." : "Refresh"}
+            side="bottom"
+            asChild
+          >
+            <Button
+              variant="ghost"
+              shape="square"
+              size="sm"
+              icon={
+                <ArrowsClockwiseIcon
+                  size={18}
+                  className={isRefreshing ? "animate-spin" : ""}
+                />
+              }
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+              aria-label="Refresh"
+            />
+          </Tooltip>
+        </div>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
