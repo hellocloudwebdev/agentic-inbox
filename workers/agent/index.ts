@@ -52,8 +52,8 @@ function defineTool(def: {
 }
 
 /**
- * Default system prompt used when no custom prompt is configured for a mailbox.
- * Users can override this on a per-mailbox basis via the Settings UI.
+ * Core email-agent instructions. These always run for every mailbox.
+ * Mailbox-specific instructions are appended as an additional preference layer.
  */
 const DEFAULT_SYSTEM_PROMPT = `You are an email assistant that helps manage this inbox. You read emails, draft replies, and help organize conversations.
 
