@@ -314,41 +314,6 @@ export default function Header() {
               icon={<RobotIcon size={19} />}
               onClick={toggleAgentPanel}
               aria-label="Toggle AI assistant"
-              className="rounded-lg md:hidden"
-            />
-          </Tooltip>
-          <Tooltip content="Settings" side="bottom" asChild>
-            <Button
-              variant={isSettingsActive ? "secondary" : "ghost"}
-              shape="square"
-              icon={<GearSixIcon size={19} />}
-              onClick={() =>
-                navigate(
-                  isSettingsActive
-                    ? `/mailbox/${mailboxId}/emails/inbox`
-                    : `/mailbox/${mailboxId}/settings`,
-                )
-              }
-              aria-label="Settings"
-              className="rounded-lg"
-            />
-          </Tooltip>
-        </div>
-      )}
-
-      {!isSearchExpanded && (
-        <div className="hidden ml-auto shrink-0 items-center gap-1 lg:flex">
-          <Tooltip
-            content={isAgentPanelOpen ? "Hide AI assistant" : "Show AI assistant"}
-            side="bottom"
-            asChild
-          >
-            <Button
-              variant={isAgentPanelOpen ? "secondary" : "ghost"}
-              shape="square"
-              icon={<RobotIcon size={19} />}
-              onClick={toggleAgentPanel}
-              aria-label="Toggle AI assistant"
               className="rounded-lg"
             />
           </Tooltip>
