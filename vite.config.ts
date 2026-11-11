@@ -9,6 +9,14 @@ import { defineConfig } from "vite";
 import tsconfigPaths from "vite-tsconfig-paths";
 
 export default defineConfig({
+  // Cloudflare's build containers have a comparatively low file-descriptor
+  // ceiling. Limit Rollup's parallel module reads to avoid transient EMFILE
+  // failures while resolving the large Phosphor icon package.
+  build: {
+    rollupOptions: {
+      maxParallelFileOps: 4,
+    },
+  },
   plugins: [
     cloudflare({ viteEnvironment: { name: "ssr" } }),
     tailwindcss(),
