@@ -111,8 +111,8 @@ async function getSystemPrompt(env: Env, mailboxId: string): Promise<string> {
   const enabled = skills.filter(skill => skill.enabled);
   const always = enabled.filter(skill => skill.mode === "always");
   const onDemand = enabled.filter(skill => skill.mode === "on-demand");
-  if (always.length) prompt += "\\n\\n## Enabled Skills\\n" + always.map(skill => `### ${skill.name}\\n${skill.instructions}`).join("\\n\\n");
-  if (onDemand.length) prompt += "\\n\\n## Available On-demand Skills\\n" + onDemand.map(skill => `- ${skill.name}: ${skill.description}`).join("\\n") + "\\nUse load_skill with the exact skill name to retrieve full instructions when relevant.";
+  if (always.length) prompt += "\n\n## Enabled Skills\n" + always.map(skill => `### ${skill.name}\n${skill.instructions}`).join("\n\n");
+  if (onDemand.length) prompt += "\n\n## Available On-demand Skills\n" + onDemand.map(skill => `- ${skill.name}: ${skill.description}`).join("\n") + "\nUse load_skill with the exact skill name to retrieve full instructions when relevant.";
  } catch (error) {
   console.warn("Could not load agent skills:", (error as Error).message);
  }
