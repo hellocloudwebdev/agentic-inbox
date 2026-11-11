@@ -6,6 +6,25 @@ export interface AuthenticatedClerkUser {
   email: string;
 }
 
+export function getAllowedClerkUser(
+  payload: Record<string, unknown>,
+  allowedEmail: string,
+): AuthenticatedClerkUser | null {
+  const id = typeof payload.sub === "string" ? payload.sub : "";
+  const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+
+  if (
+    !id ||
+    payload.email_verified !== true ||
+    !email ||
+    email !== allowedEmail.trim().toLowerCase()
+  ) {
+    return null;
+  }
+
+  return { id, email };
+}
+
 function getCookie(request: Request, name: string): string | undefined {
   const cookieHeader = request.headers.get("Cookie");
   if (!cookieHeader) return undefined;
@@ -45,21 +64,10 @@ export async function authenticateClerkRequest(
       authorizedParties: [origin],
     });
 
-    const email =
-      typeof payload.email === "string"
-        ? payload.email.trim().toLowerCase()
-        : "";
-
-    if (
-      !payload.sub ||
-      payload.email_verified !== true ||
-      !email ||
-      email !== env.CLERK_ALLOWED_EMAIL.trim().toLowerCase()
-    ) {
-      return null;
-    }
-
-    return { id: payload.sub, email };
+    return getAllowedClerkUser(
+      payload as Record<string, unknown>,
+      env.CLERK_ALLOWED_EMAIL,
+    );
   } catch {
     // Missing, expired, incorrectly signed, or unauthorized-party tokens fail closed.
     return null;
