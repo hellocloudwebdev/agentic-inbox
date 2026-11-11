@@ -25,7 +25,7 @@ The backend intentionally checks the signed-in user's email against the one allo
 }
 ```
 
-Save the claim. The worker reads these signed claims; it does not trust a client-supplied email address. The session is rejected unless the email matches `hellocloud.webdev@gmail.com` and `email_verified` is boolean `true`.
+Save the claim. The worker reads these signed claims; it does not trust a client-supplied email address. The session is rejected unless the email matches `hellocloud.webdev@gmail.com` and `email_verified` is boolean `true`. Sign out of any existing Clerk session and sign in again after changing the claims so the session token contains the new values.
 
 ## 3. Configure Worker environment
 
