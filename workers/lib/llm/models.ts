@@ -23,12 +23,15 @@ export async function fetchProviderModels(input: {
   kind: ProviderKind; baseUrl: string; apiKey: string;
 }): Promise<ProviderModel[]> {
   const base = assertSafeProviderUrl(input.baseUrl);
-  const suffix = input.kind === "anthropic" ? "/v1/models" : "/models";
-  const url = new URL(base.toString().replace(/\/+$/, "") + suffix);
+  const pathname = base.pathname.replace(/\/+$/, "");
+  const suffix = input.kind === "anthropic"
+    ? (pathname.endsWith("/v1") ? "/models" : "/v1/models")
+    : "/models";
+  const url = new URL(base.origin + pathname + suffix);
   const headers: Record<string, string> = input.kind === "anthropic"
     ? { "x-api-key": input.apiKey, "anthropic-version": "2023-06-01" }
     : { Authorization: `Bearer ${input.apiKey}` };
-  const response = await fetch(url, { method: "GET", headers, redirect: "error" });
+  const response = await fetch(url, { method: "GET", headers, redirect: "error", signal: AbortSignal.timeout(12000) });
   if (!response.ok) throw new Error(`Provider model discovery failed (${response.status})`);
   return parseModels(await response.json());
 }
