@@ -1,0 +1,56 @@
+import { useEffect, useState } from "react";
+import { Button, Input, useKumoToastManager } from "@cloudflare/kumo";
+import { useAiSettings,useFetchProviderModels,useSaveAiConfig,useSaveAgentSkills,useTestAiProvider } from "~/queries/ai-settings";
+import type { AiSettings,LlmProviderSettings,AgentSkillSettings,LlmRoleTarget } from "~/services/api";
+
+const emptyConfig:AiSettings["config"]={providers:[],routing:{chat:{providerId:"",model:""},draft:{providerId:"",model:""},verifier:{providerId:"",model:""},scanner:{providerId:"",model:""}},fallbackToWorkersAi:true};
+const presets=[
+ {name:"OpenRouter",kind:"openai-compatible" as const,baseUrl:"https://openrouter.ai/api/v1"},
+ {name:"Groq",kind:"openai-compatible" as const,baseUrl:"https://api.groq.com/openai/v1"},
+ {name:"DeepSeek",kind:"openai-compatible" as const,baseUrl:"https://api.deepseek.com"},
+ {name:"Google Gemini",kind:"openai-compatible" as const,baseUrl:"https://generativelanguage.googleapis.com/v1beta/openai"},
+ {name:"Anthropic",kind:"anthropic" as const,baseUrl:"https://api.anthropic.com/v1"},
+];
+const roles=["chat","draft","verifier","scanner"] as const;
+export function AiConfiguration(){
+ const toast=useKumoToastManager(), query=useAiSettings(), saveConfig=useSaveAiConfig(), fetchModels=useFetchProviderModels(),testProvider=useTestAiProvider(),saveSkills=useSaveAgentSkills();
+ const [config,setConfig]=useState<AiSettings["config"]>(emptyConfig),[skills,setSkills]=useState<AgentSkillSettings[]>([]);
+ const [providerName,setProviderName]=useState("OpenRouter"),[kind,setKind]=useState<"openai-compatible"|"anthropic">("openai-compatible"),[baseUrl,setBaseUrl]=useState(presets[0].baseUrl),[apiKey,setApiKey]=useState(""),[models,setModels]=useState<string[]>([]),[selectedModel,setSelectedModel]=useState("");
+ const [skillName,setSkillName]=useState(""),[skillDescription,setSkillDescription]=useState(""),[skillInstructions,setSkillInstructions]=useState(""),[skillMode,setSkillMode]=useState<"always"|"on-demand">("on-demand");
+ useEffect(()=>{if(query.data){setConfig(query.data.config);setSkills(query.data.skills)}},[query.data]);
+ const applyPreset=(name:string)=>{const p=presets.find(x=>x.name===name);if(p){setProviderName(p.name);setKind(p.kind);setBaseUrl(p.baseUrl)}};
+ const fetch=async()=>{try{const result=await fetchModels.mutateAsync({kind,baseUrl,apiKey});setModels(result.models);setSelectedModel(result.models[0]??"");toast.add({title:`Fetched ${result.models.length} models`})}catch(e){toast.add({title:"Could not fetch models",description:(e as Error).message,variant:"error"})}};
+ const addProvider=()=>{
+  if(!providerName.trim()||!models.length)return;
+  const id=providerName.toLowerCase().replace(/[^a-z0-9-]/g,"-");
+  const provider:LlmProviderSettings={id,name:providerName,kind,baseUrl,models,hasKey:!!apiKey,apiKey};
+  setConfig(old=>({...old,providers:[...old.providers.filter(p=>p.id!==id),provider]}));
+  setApiKey("");toast.add({title:"Provider added",description:"Save AI settings to persist the provider."});
+ };
+ const save=async()=>{try{await saveConfig.mutateAsync(config);await saveSkills.mutateAsync(skills);toast.add({title:"AI settings saved"})}catch(e){toast.add({title:"Save failed",description:(e as Error).message,variant:"error"})}};
+ const route=(role:typeof roles[number],value:LlmRoleTarget)=>setConfig(old=>({...old,routing:{...old.routing,[role]:value}}));
+ const addSkill=()=>{if(!skillName.trim()||!skillDescription.trim()||!skillInstructions.trim())return;setSkills(old=>[...old,{id:crypto.randomUUID(),name:skillName.trim(),description:skillDescription.trim(),instructions:skillInstructions.trim(),enabled:true,mode:skillMode}]);setSkillName("");setSkillDescription("");setSkillInstructions("")};
+ return <section className="space-y-5">
+  <div className="rounded-xl border border-kumo-line bg-kumo-base p-5 space-y-4">
+   <div><h2 className="text-sm font-semibold text-kumo-default">AI Providers</h2><p className="mt-1 text-xs text-kumo-subtle">Connect model providers and route each agent task to its preferred model.</p></div>
+   <div className="rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900">Privacy notice: email content and prompts are sent to the selected third-party AI provider when that provider handles a task. Review its data-retention and privacy policies before connecting it.</div>
+   <div className="grid gap-3 sm:grid-cols-2">
+    <label className="text-xs text-kumo-subtle">Provider preset<select className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" onChange={e=>applyPreset(e.target.value)}>{presets.map(p=><option key={p.name}>{p.name}</option>)}</select></label>
+    <label className="text-xs text-kumo-subtle">Provider name<input className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={providerName} onChange={e=>setProviderName(e.target.value)}/></label>
+    <label className="text-xs text-kumo-subtle">API type<select className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={kind} onChange={e=>setKind(e.target.value as typeof kind)}><option value="openai-compatible">OpenAI-compatible</option><option value="anthropic">Anthropic</option></select></label>
+    <label className="text-xs text-kumo-subtle">Base URL<input className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={baseUrl} onChange={e=>setBaseUrl(e.target.value)}/></label>
+    <label className="text-xs text-kumo-subtle sm:col-span-2">API key<input type="password" autoComplete="new-password" className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={apiKey} onChange={e=>setApiKey(e.target.value)} placeholder="Paste provider API key"/></label>
+   </div>
+   <div className="flex flex-wrap gap-2"><Button onClick={fetch} loading={fetchModels.isPending} disabled={!apiKey.trim()}>Fetch models</Button><select aria-label="Available model" className="min-w-0 flex-1 rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={selectedModel} onChange={e=>setSelectedModel(e.target.value)}><option value="">Select fetched model</option>{models.map(m=><option key={m}>{m}</option>)}</select><Button variant="secondary" onClick={addProvider} disabled={!selectedModel}>Add provider</Button></div>
+   <div className="space-y-2">{config.providers.map(p=><div key={p.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-kumo-line p-3"><div><div className="text-sm font-medium">{p.name}</div><div className="text-xs text-kumo-subtle">{p.models.length} models · {p.hasKey?"API key saved":"API key missing"}</div></div><Button size="sm" variant="secondary" onClick={async()=>{try{const r=await testProvider.mutateAsync({providerId:p.id,model:p.models[0]});toast.add({title:r.ok?"Provider connection successful":"Provider test failed",description:r.response||r.error,variant:r.ok?"success":"error"})}catch(e){toast.add({title:"Provider test failed",description:(e as Error).message,variant:"error"})}}} loading={testProvider.isPending}>Test</Button></div>)}</div>
+   <div className="space-y-3 border-t border-kumo-line pt-4"><div className="text-sm font-medium">Model routing</div>{roles.map(role=><label key={role} className="grid gap-1 text-xs capitalize text-kumo-subtle sm:grid-cols-[100px_1fr] sm:items-center"><span>{role}</span><select className="w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={config.routing[role].providerId+"|"+config.routing[role].model} onChange={e=>{const [providerId,model]=e.target.value.split("|");route(role,{providerId,model})}}><option value="|">Workers AI (built-in)</option>{config.providers.flatMap(p=>p.models.map(m=><option key={p.id+"|"+m} value={p.id+"|"+m}>{p.name} / {m}</option>))}</select></label>)}</div>
+   <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={config.fallbackToWorkersAi} onChange={e=>setConfig(old=>({...old,fallbackToWorkersAi:e.target.checked}))}/> Fall back to Workers AI if provider fails</label>
+  </div>
+  <div className="rounded-xl border border-kumo-line bg-kumo-base p-5 space-y-4">
+   <div><h2 className="text-sm font-semibold text-kumo-default">Agent skills</h2><p className="mt-1 text-xs text-kumo-subtle">Always-on skills are included in the system prompt. On-demand skills are loaded by the agent only when needed.</p></div>
+   {skills.map(s=><div key={s.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-kumo-line p-3"><div className="min-w-0"><div className="text-sm font-medium">{s.name}</div><div className="text-xs text-kumo-subtle">{s.description} · {s.mode}</div></div><div className="flex items-center gap-2"><label className="text-xs"><input type="checkbox" checked={s.enabled} onChange={e=>setSkills(old=>old.map(x=>x.id===s.id?{...x,enabled:e.target.checked}:x))}/> Enabled</label><Button size="xs" variant="ghost" onClick={()=>setSkills(old=>old.filter(x=>x.id!==s.id))}>Remove</Button></div></div>)}
+   <div className="grid gap-2"><input className="rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" placeholder="Skill name" value={skillName} onChange={e=>setSkillName(e.target.value)}/><input className="rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" placeholder="Short description" value={skillDescription} onChange={e=>setSkillDescription(e.target.value)}/><textarea className="rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" rows={4} placeholder="Full skill instructions" value={skillInstructions} onChange={e=>setSkillInstructions(e.target.value)}/><div className="flex flex-wrap items-center justify-between gap-2"><select className="rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={skillMode} onChange={e=>setSkillMode(e.target.value as typeof skillMode)}><option value="always">Always included</option><option value="on-demand">On demand</option></select><Button variant="secondary" onClick={addSkill}>Add skill</Button></div></div>
+  </div>
+  <div className="flex justify-end"><Button variant="primary" onClick={save} loading={saveConfig.isPending||saveSkills.isPending}>Save AI settings</Button></div>
+ </section>;
+}
