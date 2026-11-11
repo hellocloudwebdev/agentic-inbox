@@ -78,10 +78,13 @@ export default function SettingsRoute() {
 
 
 	const updateRoute = (role: keyof LlmConfig["routing"], field: "providerId" | "model", value: string) => {
-		setLlmConfig((current) => current ? {
-			...current,
-			routing: { ...current.routing, [role]: { ...current.routing[role], [field]: value, ...(field === "providerId" ? { model: "" } : {}) } },
-		} : current);
+		setLlmConfig((current) => {
+			if (!current) return current;
+			if (field === "model") return { ...current, routing: { ...current.routing, [role]: { ...current.routing[role], model: value } } };
+			const selected = current.providers.find((provider) => provider.id === value);
+			const workersModel = role === "scanner" ? "@cf/meta/llama-3.1-8b-instruct-fast" : role === "verifier" ? "@cf/meta/llama-4-scout-17b-16e-instruct" : "@cf/moonshotai/kimi-k2.5";
+			return { ...current, routing: { ...current.routing, [role]: { providerId: value, model: value === "workers-ai" ? workersModel : selected?.models[0]?.id || "" } } };
+		});
 	};
 	const handleAddProvider = async () => {
 		if (!llmConfig || !providerName.trim() || !providerBaseUrl.trim() || !providerKey.trim()) return;
