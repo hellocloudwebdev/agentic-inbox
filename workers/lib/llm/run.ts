@@ -10,8 +10,8 @@ export async function generateForRole(
   options: Omit<GenerateTextOptions, "model">,
 ) {
   const config = await loadLlmConfig(env);
-  const model = await resolveRole(env, role, config);
   try {
+    const model = await resolveRole(env, role, config);
     return await generateText({ ...options, model });
   } catch (primaryError) {
     if (!config.fallbackToWorkersAi || config.routing[role].providerId === "workers-ai") throw primaryError;
