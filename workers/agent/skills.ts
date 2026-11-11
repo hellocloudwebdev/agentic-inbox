@@ -24,7 +24,7 @@ export function upsertAgentSkill(
     name,
     description,
     instructions,
-    enabled: existing?.enabled ?? true,
+    enabled: true,
     mode: "on-demand",
   };
 
