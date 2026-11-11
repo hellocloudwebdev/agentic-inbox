@@ -62,6 +62,14 @@ const TOOL_LABELS: Record<string, { label: string; icon: React.ReactNode }> = {
 		label: "Moving email",
 		icon: <EnvelopeSimpleIcon size={14} weight="bold" />,
 	},
+	load_skill: {
+		label: "Loading skill",
+		icon: <WrenchIcon size={14} weight="bold" />,
+	},
+	save_skill: {
+		label: "Saving skill",
+		icon: <WrenchIcon size={14} weight="bold" />,
+	},
 };
 
 function ToolCallBadge({
@@ -386,7 +394,7 @@ function AgentChatConnected({
 						</div>
 						<p className="text-xs text-kumo-subtle text-center leading-relaxed px-4">
 							I can read emails, search conversations, and draft
-							replies.
+							replies. You can also teach me reusable workflows and ask me to save them as skills.
 						</p>
 						<div className="flex flex-col gap-1.5 w-full">
 							{suggestedPrompts.map((prompt) => (
@@ -492,7 +500,7 @@ function AgentChatConnected({
 							value={inputValue}
 							onChange={(e) => setInputValue(e.target.value)}
 							onKeyDown={handleKeyDown}
-							placeholder="Ask your email agent..."
+							placeholder="Ask or teach your email agent..."
 							rows={1}
 							aria-label="Chat message input"
 							className="flex-1 resize-none rounded-lg border border-kumo-line bg-kumo-control px-3 py-2 text-xs text-kumo-default placeholder:text-kumo-subtle focus:outline-none focus:ring-1 focus:ring-kumo-ring min-h-[36px] max-h-[100px]"
