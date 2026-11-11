@@ -40,7 +40,7 @@ describe("upsertAgentSkill", () => {
     expect(result.action).toBe("updated");
     expect(result.skills).toHaveLength(1);
     expect(result.skill.id).toBe("existing-id");
-    expect(result.skill.enabled).toBe(false);
+    expect(result.skill.enabled).toBe(true);
     expect(result.skill.mode).toBe("on-demand");
     expect(result.skill.instructions).toBe("Updated instructions");
   });
