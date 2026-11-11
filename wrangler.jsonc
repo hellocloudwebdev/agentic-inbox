@@ -11,6 +11,7 @@
 	],
 	"vars": {
 		// Only this verified Clerk Google account is authorized to access mailbox data.
+		"CLERK_PUBLISHABLE_KEY": "pk_test_Y2FwYWJsZS1yYW0tNTk2MS5jbGVyay5hY2NvdW50cy5kZXYk",
 		"CLERK_ALLOWED_EMAIL": "hellocloud.webdev@gmail.com",
 		// DATABASE_URL is set as a secret via `wrangler secret put DATABASE_URL` (or in .dev.vars for local dev).
 		"DOMAINS": "neerajsingh.me",
