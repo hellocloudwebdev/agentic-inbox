@@ -23,8 +23,8 @@ export async function fetchProviderModels(input: {
   kind: ProviderKind; baseUrl: string; apiKey: string;
 }): Promise<ProviderModel[]> {
   const base = assertSafeProviderUrl(input.baseUrl);
-  const path = input.kind === "anthropic" ? "/v1/models" : "/models";
-  const url = new URL(path, base.toString().replace(/\/$/, "") + "/");
+  const suffix = input.kind === "anthropic" ? "/v1/models" : "/models";
+  const url = new URL(base.toString().replace(/\/+$/, "") + suffix);
   const headers: Record<string, string> = input.kind === "anthropic"
     ? { "x-api-key": input.apiKey, "anthropic-version": "2023-06-01" }
     : { Authorization: `Bearer ${input.apiKey}` };
