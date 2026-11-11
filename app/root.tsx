@@ -22,11 +22,17 @@ import {
 	Outlet,
 	Link as RouterLink,
 	useLocation,
+	useLoaderData,
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
 import { ApiError } from "~/services/api";
+import type { Route } from "./+types/root";
 import "./index.css";
+
+export function loader({ context }: Route.LoaderArgs) {
+	return { clerkPublishableKey: context.cloudflare.env.CLERK_PUBLISHABLE_KEY || "" };
+}
 
 function makeQueryClient() {
 	return new QueryClient({
@@ -136,19 +142,19 @@ export function HydrateFallback() {
 
 export default function App() {
 	const [queryClient] = useState(getQueryClient);
-	const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
+	const { clerkPublishableKey } = useLoaderData<typeof loader>();
 
-	if (!publishableKey) {
+	if (!clerkPublishableKey) {
 		return (
 			<div className="mx-auto flex min-h-screen max-w-xl flex-col items-center justify-center gap-3 px-6 text-center">
 				<h1 className="text-xl font-semibold">Authentication is not configured</h1>
-				<p className="text-sm text-kumo-subtle">Set VITE_CLERK_PUBLISHABLE_KEY in the build environment to enable Google sign-in.</p>
+				<p className="text-sm text-kumo-subtle">Set CLERK_PUBLISHABLE_KEY in your Cloudflare Worker environment to enable Google sign-in.</p>
 			</div>
 		);
 	}
 
 	return (
-		<ClerkProvider publishableKey={publishableKey}>
+		<ClerkProvider publishableKey={clerkPublishableKey}>
 			<QueryClientProvider client={queryClient}>
 				<LinkProvider component={KumoLink}>
 					<TooltipProvider>
