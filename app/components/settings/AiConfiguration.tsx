@@ -312,6 +312,35 @@ export function AiConfiguration() {
         </label>
       </div>
 
+      {skills.some((skill) => skill.mode === "always") && (
+        <div className="rounded-xl border border-kumo-line bg-kumo-base p-5 space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold text-kumo-default">Existing Always-on Skills</h2>
+            <p className="mt-1 text-xs text-kumo-subtle">These older skills remain active on every agent run. New skills belong in the on-demand library below.</p>
+          </div>
+          {skills.filter((skill) => skill.mode === "always").map((skill) => (
+            <div key={skill.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-kumo-line p-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium">{skill.name}</div>
+                <div className="text-xs text-kumo-subtle">{skill.description}</div>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-xs">
+                  <input type="checkbox" checked={skill.enabled} onChange={(event) => setSkills((old) => old.map((item) => item.id === skill.id ? { ...item, enabled: event.target.checked } : item))} /> Enabled
+                </label>
+                <Button size="xs" variant="ghost" onClick={() => {
+                  setEditingSkillId(skill.id);
+                  setSkillName(skill.name);
+                  setSkillDescription(skill.description);
+                  setSkillInstructions(skill.instructions);
+                }}>Edit</Button>
+                <Button size="xs" variant="ghost" onClick={() => setSkills((old) => old.filter((item) => item.id !== skill.id))}>Remove</Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="rounded-xl border border-kumo-line bg-kumo-base p-5 space-y-4">
         <div>
           <div className="flex items-center gap-2">
@@ -323,15 +352,10 @@ export function AiConfiguration() {
           </p>
         </div>
 
-        {skills.map((skill) => (
+        {skills.filter((skill) => skill.mode === "on-demand").map((skill) => (
           <div key={skill.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-kumo-line p-3">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="text-sm font-medium">{skill.name}</div>
-                <span className="rounded-full bg-kumo-fill px-2 py-0.5 text-[10px] text-kumo-subtle">
-                  {skill.mode === "always" ? "Existing always-on skill" : "On demand"}
-                </span>
-              </div>
+              <div className="text-sm font-medium">{skill.name}</div>
               <div className="text-xs text-kumo-subtle">{skill.description}</div>
             </div>
             <div className="flex items-center gap-2">
