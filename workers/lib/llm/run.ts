@@ -12,8 +12,14 @@ export async function resolveRole(env:Env,role:LlmRole){
  const config=await getLlmConfig(env); const target=config?.routing?.[role];
  if(!target?.providerId) return workersAiModel(env,DEFAULTS[role]);
  const provider=config?.providers?.find(p=>p.id===target.providerId);
- if(!provider) throw new Error(`No provider configured for ${role}`);
- return resolveProviderModel(env,provider,target.model);
+ try {
+  if(!provider) throw new Error(`No provider configured for ${role}`);
+  return await resolveProviderModel(env,provider,target.model);
+ } catch(error) {
+  if(config?.fallbackToWorkersAi===false) throw error;
+  console.warn(`Could not resolve configured ${role} model; using Workers AI`,error);
+  return workersAiModel(env,DEFAULTS[role]);
+ }
 }
 export async function generateForRole(env:Env,role:LlmRole,options:Omit<Parameters<typeof generateText>[0],"model">){
  const config=await getLlmConfig(env);
