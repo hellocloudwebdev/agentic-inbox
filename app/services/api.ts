@@ -92,9 +92,36 @@ interface EmailListResponse {
 	totalCount: number;
 }
 
+// ---------- AI settings types ----------
+
+export interface LlmProviderInput {
+	id: string; name: string; kind: "openai-compatible" | "anthropic"; baseUrl: string;
+	apiKey?: string; hasKey?: boolean; models: { id: string; name?: string }[];
+}
+export interface LlmRoleTarget { providerId: string; model: string; }
+export interface LlmConfig {
+	providers: LlmProviderInput[];
+	routing: { chat: LlmRoleTarget; draft: LlmRoleTarget; verifier: LlmRoleTarget; scanner: LlmRoleTarget };
+	fallbackToWorkersAi: boolean;
+}
+export interface AgentSkill {
+	id: string; name: string; description: string; instructions: string;
+	enabled: boolean; mode: "always" | "on-demand";
+}
+
 // ---------- API client ----------
 
 const api = {
+	// AI providers and agent skills
+	getLlmConfig: () => get<LlmConfig>("/api/v1/ai/config"),
+	putLlmConfig: (config: LlmConfig) => put<LlmConfig>("/api/v1/ai/config", config),
+	fetchLlmModels: (input: { kind: LlmProviderInput["kind"]; baseUrl: string; apiKey: string }) =>
+		post<{ models: { id: string; name?: string }[] }>("/api/v1/ai/models/fetch", input),
+	testLlmModel: (input: { providerId: string; model: string; role?: keyof LlmConfig["routing"] }) =>
+		post<{ ok: boolean; text?: string; error?: string }>("/api/v1/ai/test", input),
+	getAgentSkills: () => get<{ skills: AgentSkill[] }>("/api/v1/ai/skills"),
+	putAgentSkills: (skills: AgentSkill[]) => put<{ skills: AgentSkill[] }>("/api/v1/ai/skills", { skills }),
+
 	// Config
 	getConfig: () =>
 		get<{ domains: string[]; emailAddresses: string[] }>("/api/v1/config"),
