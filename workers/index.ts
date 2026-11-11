@@ -17,6 +17,7 @@ import {
 } from "./lib/email-helpers";
 import { SendEmailRequestSchema } from "./lib/schemas";
 import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
+import { aiSettingsRoutes } from "./routes/ai-settings";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
