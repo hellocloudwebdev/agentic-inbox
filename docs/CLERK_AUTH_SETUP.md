@@ -16,15 +16,16 @@ Google's production social connection requires custom OAuth credentials. Clerk's
 
 ## 2. Add the session email claim
 
-The backend intentionally checks the signed-in user's email against the one allowed account. In Clerk Dashboard → **Sessions** → **Customize session token** → Claims, add:
+The backend intentionally checks the signed-in user's email against the one allowed account and requires Clerk's signed `email_verified` claim to be true. In Clerk Dashboard → **Sessions** → **Customize session token** → Claims, add:
 
 ```json
 {
-  "primaryEmail": "{{user.primary_email_address}}"
+  "email": "{{user.primary_email_address}}",
+  "email_verified": "{{user.email_verified}}"
 }
 ```
 
-Save the claim. The worker reads this signed claim; it does not trust a client-supplied email address.
+Save the claim. The worker reads these signed claims; it does not trust a client-supplied email address. The session is rejected unless the email matches `hellocloud.webdev@gmail.com` and `email_verified` is boolean `true`.
 
 ## 3. Configure Worker environment
 
