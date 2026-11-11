@@ -1,5 +1,15 @@
 # Clerk Google authentication setup
 
+## Clerk application created
+
+A development application named **Agentic Inbox** has been created in the connected Clerk workspace:
+
+- Application ID: `app_3LyUNeilbUdnph0wAxDH23GARpB`
+- Development instance ID: `ins_3LyUNh34VU2HXfcqzypwFmOfLo2`
+- Development publishable key: configured in `wrangler.jsonc` and `.dev.vars.example`
+
+The connected Clerk integration could read the instance configuration, but its configuration update operation returned `resource_not_found`. The current instance has Google OAuth enabled by default, but email-code and password authentication are also enabled. Switch off those non-Google methods in the Clerk Dashboard before treating the instance as Google-only.
+
 Agentic Inbox now uses Clerk sessions instead of Cloudflare Access OTP for application authentication. Access is restricted to **hellocloud.webdev@gmail.com**. Existing mailbox records and settings remain in Neon; the first Google sign-in creates or recognizes the corresponding Clerk identity.
 
 ## 1. Configure Clerk
