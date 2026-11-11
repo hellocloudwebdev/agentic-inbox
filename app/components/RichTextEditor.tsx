@@ -90,7 +90,7 @@ export default function RichTextEditor({
 	return (
 		<div className="rounded-lg border border-kumo-line overflow-hidden flex flex-col h-full">
 			{/* Toolbar */}
-			<div className="flex flex-wrap items-center gap-0.5 bg-kumo-recessed px-2 py-1.5 border-b border-kumo-line shrink-0">
+			<div className="flex flex-nowrap items-center gap-0.5 overflow-x-auto overscroll-x-contain bg-kumo-recessed px-2 py-1.5 border-b border-kumo-line shrink-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 				{/* Text formatting */}
 				<Tooltip content="Bold" side="bottom" asChild>
 					<Button
@@ -231,7 +231,7 @@ export default function RichTextEditor({
 			</div>
 
 			{/* Editor content */}
-			<div className="flex-1 overflow-y-auto">
+			<div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
 				<EditorContent editor={editor} />
 			</div>
 		</div>
