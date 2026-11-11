@@ -9,9 +9,8 @@ import { useParams } from "react-router";
 import { useMailbox, useUpdateMailbox } from "~/queries/mailboxes";
 import { AiConfiguration } from "~/components/settings/AiConfiguration";
 
-// Placeholder shown in the textarea when no custom prompt is set.
-// The authoritative default prompt lives in workers/agent/index.ts (DEFAULT_SYSTEM_PROMPT).
-const PROMPT_PLACEHOLDER = `You are an email assistant that helps manage this inbox. You read emails, draft replies, and help organize conversations.\n\nWrite like a real person. Short, direct, flowing prose. Plain text only.\n\n(Leave empty to use the full built-in default prompt)`;
+// The built-in prompt always runs. This field stores additional mailbox-specific instructions.
+const PROMPT_PLACEHOLDER = `The built-in email-agent instructions are always active. Add extra rules for this mailbox here. These instructions extend the defaults rather than replacing them.`;
 
 export default function SettingsRoute() {
 	const { mailboxId } = useParams<{ mailboxId: string }>();
@@ -97,12 +96,12 @@ export default function SettingsRoute() {
  						<div className="flex items-center gap-2">
  							<RobotIcon size={16} weight="duotone" className="text-kumo-subtle" />
  							<span className="text-sm font-medium text-kumo-default">
- 				 				AI Agent Prompt
+ 				 				Additional Agent Instructions
  							</span>
  							{isCustomPrompt ? (
- 				 				<Badge variant="primary">Custom</Badge>
+ 				 				<Badge variant="primary">Custom additions</Badge>
  							) : (
- 				 				<Badge variant="secondary">Default</Badge>
+ 				 				<Badge variant="secondary">Always included</Badge>
  							)}
  						</div>
  						{isCustomPrompt && (
@@ -112,13 +111,13 @@ export default function SettingsRoute() {
  				 				icon={<ArrowCounterClockwiseIcon size={14} />}
  				 				onClick={handleResetPrompt}
  							>
- 				 				Reset to default
+ 				 				Clear additional instructions
  							</Button>
  						)}
  					</div>
  					<p className="text-xs text-kumo-subtle mb-3">
- 						Customize how the AI agent behaves for this mailbox.
- 						Leave empty to use the built-in default prompt.
+ 						The built-in instructions are always included. Add mailbox-specific preferences or rules here; they extend the defaults instead of replacing them.
+ 						Leave empty to use only the built-in instructions.
  					</p>
  					<textarea
  						value={agentPrompt}
@@ -128,8 +127,8 @@ export default function SettingsRoute() {
  						className="w-full resize-y rounded-lg border border-kumo-line bg-kumo-recessed px-3 py-2 text-xs text-kumo-default placeholder:text-kumo-subtle focus:outline-none focus:ring-1 focus:ring-kumo-ring font-mono leading-relaxed"
  					/>
  					<p className="text-xs text-kumo-subtle mt-2">
- 						The prompt is sent as the system message to the AI model.
- 						It controls the agent's personality, writing style, and behavior rules.
+ 						These additional instructions are appended to the built-in system instructions on every agent run.
+ 						They never replace the core email-agent rules or its safety boundaries.
  					</p>
  				</div>
 
