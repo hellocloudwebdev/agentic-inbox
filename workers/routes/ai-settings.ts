@@ -4,7 +4,7 @@ import { generateText } from "ai";
 import type { Env } from "../types";
 import { getNeonDb, ensureNeonSchema } from "../db/neon-client";
 import { AppSettingsRepository } from "../db/repositories/app-settings-repository";
-import { encryptApiKey, decryptApiKey } from "../lib/llm/encryption";
+import { encryptApiKey } from "../lib/llm/encryption";
 import { fetchProviderModels } from "../lib/llm/models";
 import { assertSafeProviderUrl } from "../lib/llm/safe-url";
 import { loadLlmConfig, resolveRole } from "../lib/llm/registry";
