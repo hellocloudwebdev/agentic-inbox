@@ -3,8 +3,8 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 export interface Env extends Cloudflare.Env {
-	POLICY_AUD: string;
-	TEAM_DOMAIN: string;
+	CLERK_JWT_KEY: string;
+	CLERK_ALLOWED_EMAIL: string;
 	DATABASE_URL: string;
 	ZOHO_SMTP_HOST: string;
 	ZOHO_SMTP_PORT: string;
