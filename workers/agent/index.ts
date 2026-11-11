@@ -316,7 +316,7 @@ export class EmailAgent extends AIChatAgent<any> {
 		const tools = createEmailTools(env, mailboxId);
 		const systemPrompt = await getSystemPrompt(env, mailboxId);
 
-		let chatModel;
+		let chatModel: Awaited<ReturnType<typeof resolveRole>>;
 		try {
 			chatModel = await resolveRole(env, "chat");
 		} catch (error) {
