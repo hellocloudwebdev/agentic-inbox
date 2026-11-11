@@ -22,6 +22,7 @@ export default function MailboxRoute() {
     isSidebarOpen,
     closeSidebar,
     isAgentPanelOpen,
+    toggleAgentPanel,
     closePanel,
     closeComposeModal,
   } = useUIStore();

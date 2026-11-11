@@ -64,8 +64,15 @@ app.put("/config",async c=>{
 });
 app.post("/models/fetch",async c=>{
  const body=z.object({kind:z.enum(["openai-compatible","anthropic"]),baseUrl:z.string().url(),apiKey:z.string().min(1)}).parse(await c.req.json());
- const models=await fetchProviderModels(body);
- return c.json({models});
+ try {
+  const models=await fetchProviderModels(body);
+  return c.json({models});
+ } catch(error) {
+  // Provider/network failures must be actionable client errors, not opaque Worker 500s.
+  const message=error instanceof Error ? error.message : "Unknown provider discovery error";
+  console.error("AI provider model discovery failed:", message);
+  return c.json({error:message},502);
+ }
 });
 app.post("/test",async c=>{
  const body=z.object({providerId:z.string(),model:z.string()}).parse(await c.req.json());
