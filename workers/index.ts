@@ -95,6 +95,9 @@ app.get("/api/v1/config", (c) => {
 	return c.json({ domains, emailAddresses });
 });
 
+// -- AI provider and agent skill settings ---------------------------
+app.route("/api/v1/ai", aiSettingsRoutes);
+
 // -- Mailboxes ------------------------------------------------------
 
 app.get("/api/v1/mailboxes", async (c) => {
