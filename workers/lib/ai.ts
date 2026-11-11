@@ -9,7 +9,7 @@
  * - verifyDraft: reviews draft email bodies and removes agent/system artifacts.
  */
 
-import { escapeHtml, stripHtmlToText, textToHtml } from "./email-helpers";
+import { stripHtmlToText, textToHtml } from "./email-helpers";
 import { generateForRole } from "./llm/run";
 import type { Env } from "../types";
 
@@ -108,7 +108,7 @@ function splitQuotedBlock(html: string): { reply: string; quoted: string } {
 
 /**
  * Verify and clean a draft email body using AI.
- * Falls back to returning the original body if the AI call fails.
+ * Returns an empty string if verification fails; callers must fail closed.
  */
 export async function verifyDraft(env: Env, body: string): Promise<string> {
 	if (!body || !body.trim()) return body;
