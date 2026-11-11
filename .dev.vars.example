@@ -11,3 +11,6 @@ ZOHO_SMTP_PORT=587
 ZOHO_SMTP_USERNAME=mail@neerajsingh.me
 ZOHO_SMTP_FROM_NAME=Neeraj Singh
 ZOHO_SMTP_PASSWORD=your-zoho-app-password
+
+# Generate a random 32-byte key and base64-encode it; set the same value with Wrangler secret.
+LLM_ENCRYPTION_KEY=replace-with-base64-encoded-32-byte-key
