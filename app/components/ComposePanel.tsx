@@ -38,7 +38,7 @@ export default function ComposePanel() {
 	} = useComposeForm(mailboxId, folder);
 
 	return (
-		<div className="flex flex-col h-full bg-kumo-base">
+		<div className="flex h-full min-h-0 flex-col bg-kumo-base">
 			<div className="flex items-center justify-between px-4 py-3 border-b border-kumo-line shrink-0 md:px-6">
 				<h2 className="text-base font-semibold text-kumo-default">
 					{formTitle}
@@ -58,9 +58,9 @@ export default function ComposePanel() {
 
 			<form
 				onSubmit={(e) => handleSend(e, closePanel)}
-				className="flex flex-col flex-1 min-h-0 overflow-y-auto"
+				className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain"
 			>
-				<div className="p-4 md:p-6 space-y-4">
+				<div className="space-y-4 p-3 sm:p-4 md:p-6">
 					{error && <Banner variant="error" text={error} />}
 
 					<div className="space-y-3">
@@ -149,8 +149,8 @@ export default function ComposePanel() {
 				</div>
 
 				{/* Footer actions */}
-				<div className="mt-auto px-4 py-3 border-t border-kumo-line bg-kumo-fill/30 shrink-0 md:px-6">
-					<div className="flex items-center justify-between">
+				<div className="mt-auto shrink-0 border-t border-kumo-line bg-kumo-fill/30 px-3 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-4 md:px-6">
+					<div className="flex items-center justify-between gap-2">
 						<Button type="button" variant="ghost" size="sm" onClick={closeCompose} disabled={isSending}>
 							Discard
 						</Button>
