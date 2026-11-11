@@ -1,6 +1,9 @@
-# Cloudflare Access (required in production). TEAM_DOMAIN may be the base Access URL or the full /cdn-cgi/access/certs URL.
-POLICY_AUD=your-access-policy-audience-tag
-TEAM_DOMAIN=https://your-team.cloudflareaccess.com
+# Clerk server-side verification. Copy the PEM JWT public key from Clerk Dashboard -> API keys -> Show JWT public key.
+CLERK_JWT_KEY="-----BEGIN PUBLIC KEY-----\nreplace-with-your-clerk-jwt-public-key\n-----END PUBLIC KEY-----"
+CLERK_ALLOWED_EMAIL=hellocloud.webdev@gmail.com
+
+# Vite build-time public key (put this in .env, not .dev.vars).
+# VITE_CLERK_PUBLISHABLE_KEY=pk_test_replace_me
 
 # Neon PostgreSQL connection string (pooled or direct serverless connection)
 DATABASE_URL=postgresql://user:password@ep-sample-123456.us-east-2.aws.neon.tech/neondb?sslmode=require
