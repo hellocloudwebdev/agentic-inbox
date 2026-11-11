@@ -31,6 +31,7 @@ export default function SettingsRoute() {
 	const [providerBaseUrl, setProviderBaseUrl] = useState("https://openrouter.ai/api/v1");
 	const [providerKey, setProviderKey] = useState("");
 	const [providerModels, setProviderModels] = useState<{id:string;name?:string}[]>([]);
+	const [testModelId, setTestModelId] = useState("");
 	const [skills, setSkills] = useState<AgentSkill[]>([]);
 	const [skillDraft, setSkillDraft] = useState<AgentSkill | null>(null);
 	const [aiBusy, setAiBusy] = useState(false);
@@ -91,7 +92,7 @@ export default function SettingsRoute() {
 			const nextProvider: LlmProviderInput = { id, name: providerName.trim(), kind: providerKind, baseUrl: providerBaseUrl.trim(), apiKey: providerKey, models };
 			const next = { ...llmConfig, providers: [...llmConfig.providers.filter((p) => p.id !== id), nextProvider] };
 			const saved = await saveLlmConfig.mutateAsync(next);
-			setLlmConfig(saved); setProviderKey(""); setProviderModels([]);
+			setLlmConfig(saved); setProviderKey(""); setProviderModels([]); setTestModelId("");
 			toastManager.add({ title: "Provider saved" });
 		} catch (error) {
 			toastManager.add({ title: error instanceof Error ? error.message : "Could not save provider", variant: "error" });
@@ -196,6 +197,7 @@ export default function SettingsRoute() {
 					<div className="mb-4 rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900">
 						Email content, including message bodies and thread context, may be sent to the selected third-party AI provider for processing. Review that provider's privacy and data-retention terms before enabling it.
 					</div>
+					<label className="mb-3 block text-xs text-kumo-subtle">Quick provider preset<select className="mt-1 w-full rounded-md border border-kumo-line bg-kumo-recessed p-2 text-sm text-kumo-default" defaultValue="openrouter" onChange={(e)=>{const presets:Record<string,{name:string,url:string,kind:LlmProviderInput["kind"]}>={openrouter:{name:"OpenRouter",url:"https://openrouter.ai/api/v1",kind:"openai-compatible"},openai:{name:"OpenAI",url:"https://api.openai.com/v1",kind:"openai-compatible"},groq:{name:"Groq",url:"https://api.groq.com/openai/v1",kind:"openai-compatible"},gemini:{name:"Google Gemini",url:"https://generativelanguage.googleapis.com/v1beta/openai",kind:"openai-compatible"},deepseek:{name:"DeepSeek",url:"https://api.deepseek.com/v1",kind:"openai-compatible"},anthropic:{name:"Anthropic",url:"https://api.anthropic.com",kind:"anthropic"}};const p=presets[e.target.value];if(p){setProviderName(p.name);setProviderBaseUrl(p.url);setProviderKind(p.kind);}}}><option value="openrouter">OpenRouter</option><option value="openai">OpenAI</option><option value="groq">Groq</option><option value="gemini">Google Gemini</option><option value="deepseek">DeepSeek</option><option value="anthropic">Anthropic</option></select></label>
 					<div className="grid gap-3 sm:grid-cols-2">
 						<label className="text-xs text-kumo-subtle">Provider name<input className="mt-1 w-full rounded-md border border-kumo-line bg-kumo-recessed p-2 text-sm text-kumo-default" value={providerName} onChange={(e)=>setProviderName(e.target.value)} /></label>
 						<label className="text-xs text-kumo-subtle">Provider type<select className="mt-1 w-full rounded-md border border-kumo-line bg-kumo-recessed p-2 text-sm text-kumo-default" value={providerKind} onChange={(e)=>setProviderKind(e.target.value as LlmProviderInput["kind"])}><option value="openai-compatible">OpenAI-compatible</option><option value="anthropic">Anthropic</option></select></label>
@@ -206,7 +208,7 @@ export default function SettingsRoute() {
 						<Button size="sm" variant="secondary" loading={fetchModels.isPending} disabled={!providerKey.trim()} onClick={async()=>{try{const r=await fetchModels.mutateAsync({kind:providerKind,baseUrl:providerBaseUrl,apiKey:providerKey});setProviderModels(r.models);toastManager.add({title:`Found ${r.models.length} models`});}catch(e){toastManager.add({title:e instanceof Error?e.message:"Model discovery failed",variant:"error"});}}}>Fetch models</Button>
 						<Button size="sm" variant="primary" loading={aiBusy} disabled={!providerKey.trim()} onClick={handleAddProvider}>Save provider</Button>
 					</div>
-					{providerModels.length>0 && <p className="mt-2 text-xs text-kumo-subtle">{providerModels.length} models discovered. Save the provider to enable routing.</p>}
+					{providerModels.length>0 && <div className="mt-3 flex flex-wrap items-end gap-2"><label className="min-w-0 flex-1 text-xs text-kumo-subtle">Test model<select className="mt-1 w-full rounded-md border border-kumo-line bg-kumo-recessed p-2 text-sm text-kumo-default" value={testModelId} onChange={(e)=>setTestModelId(e.target.value)}><option value="">Choose a model</option>{providerModels.map((m)=><option key={m.id} value={m.id}>{m.name||m.id}</option>)}</select></label><Button size="sm" variant="secondary" loading={testModel.isPending} disabled={!testModelId || !providerKey.trim()} onClick={async()=>{try{const id=providerName.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");const r=await testModel.mutateAsync({providerId:id,model:testModelId,role:"chat"});if(!r.ok)throw new Error(r.error||"Model test failed");toastManager.add({title:"Model connection successful"});}catch(e){toastManager.add({title:e instanceof Error?e.message:"Model test failed",variant:"error"});}}}>Test model</Button><span className="text-xs text-kumo-subtle">{providerModels.length} models discovered</span></div>}
 					<div className="mt-5 space-y-2">
 						{llmConfig?.providers.map((provider)=><div key={provider.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-kumo-line p-3"><div><div className="text-sm font-medium text-kumo-default">{provider.name}</div><div className="text-xs text-kumo-subtle">{provider.baseUrl} · {provider.models.length} models · {provider.hasKey?"Key stored":"Missing key"}</div></div><Button size="xs" variant="ghost" onClick={()=>setLlmConfig((current)=>current?{...current,providers:current.providers.filter((p)=>p.id!==provider.id)}:current)}>Remove</Button></div>)}
 					</div>
