@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { AgentSkill } from "../workers/lib/llm/types";
 import { upsertAgentSkill } from "../workers/agent/skills";
 
