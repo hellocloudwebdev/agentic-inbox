@@ -17,7 +17,7 @@ export function assertSafeProviderUrl(input: string): URL {
     throw new Error("Provider URL must use public HTTPS without embedded credentials or custom ports");
   }
   if (PRIVATE_HOSTS.has(host) || host.endsWith(".localhost") || host.endsWith(".local") ||
-      host.endsWith(".internal") || host === "0.0.0.0" || host === "::1" ||
+      host.endsWith(".internal") || host === "0.0.0.0" || host.includes(":") ||
       host.startsWith("fc") || host.startsWith("fd") || host.startsWith("fe80:") ||
       isPrivateIpv4(host)) {
     throw new Error("Private, local, and link-local provider hosts are not allowed");
