@@ -122,14 +122,14 @@ async function getSystemPrompt(env: Env, mailboxId: string): Promise<string> {
 	const alwaysSkills = skills.filter((skill) => skill.mode === "always");
 	const onDemandSkills = skills.filter((skill) => skill.mode === "on-demand");
 	if (alwaysSkills.length) {
-		prompt += "\\n\\n## Enabled Skills\\n" + alwaysSkills.map((skill) =>
-			`### ${skill.name}\\n${skill.instructions}`,
-		).join("\\n\\n");
+		prompt += "\n\n## Enabled Skills\n" + alwaysSkills.map((skill) =>
+			`### ${skill.name}\n${skill.instructions}`,
+		).join("\n\n");
 	}
 	if (onDemandSkills.length) {
-		prompt += "\\n\\n## Available On-demand Skills\\n" + onDemandSkills.map((skill) =>
+		prompt += "\n\n## Available On-demand Skills\n" + onDemandSkills.map((skill) =>
 			`- ${skill.name}: ${skill.description} (use load_skill with id "${skill.id}" to load its instructions)`,
-		).join("\\n");
+		).join("\n");
 	}
 	return prompt;
 }
