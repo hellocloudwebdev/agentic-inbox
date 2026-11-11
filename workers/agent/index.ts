@@ -5,7 +5,6 @@
 import { AIChatAgent } from "@cloudflare/ai-chat";
 import {
 	streamText,
-	generateText,
 	convertToModelMessages,
 	stepCountIs,
 } from "ai";
