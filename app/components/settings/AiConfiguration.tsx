@@ -168,14 +168,14 @@ export function AiConfiguration() {
 
   const handleSkillUpload = async (file?: File) => {
     if (!file) return;
-    if (!/\\.(md|txt)$/i.test(file.name)) {
+    if (!/\.(md|txt)$/i.test(file.name)) {
       toast.add({ title: "Upload a Markdown or text skill file (.md or .txt)", variant: "error" });
       return;
     }
 
     try {
       const raw = await file.text();
-      const frontmatterMatch = raw.match(/^---\\s*\\r?\\n([\\s\\S]*?)\\r?\\n---\\s*\\r?\\n?/);
+      const frontmatterMatch = raw.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n?/);
       const frontmatter = frontmatterMatch?.[1] ?? "";
       const instructions = (frontmatterMatch ? raw.slice(frontmatterMatch[0].length) : raw).trim();
       if (!instructions) {
