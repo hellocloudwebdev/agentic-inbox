@@ -92,35 +92,23 @@ interface EmailListResponse {
 	totalCount: number;
 }
 
-// ---------- AI settings types ----------
-
-export interface LlmProviderInput {
-	id: string; name: string; kind: "openai-compatible" | "anthropic"; baseUrl: string;
-	apiKey?: string; hasKey?: boolean; models: { id: string; name?: string }[];
-}
-export interface LlmRoleTarget { providerId: string; model: string; }
-export interface LlmConfig {
-	providers: LlmProviderInput[];
-	routing: { chat: LlmRoleTarget; draft: LlmRoleTarget; verifier: LlmRoleTarget; scanner: LlmRoleTarget };
-	fallbackToWorkersAi: boolean;
-}
-export interface AgentSkill {
-	id: string; name: string; description: string; instructions: string;
-	enabled: boolean; mode: "always" | "on-demand";
+export interface LlmProviderSettings { id:string; name:string; kind:"openai-compatible"|"anthropic"; baseUrl:string; models:string[]; hasKey:boolean; apiKey?:string }
+export interface LlmRoleTarget { providerId:string; model:string }
+export interface AgentSkillSettings { id:string; name:string; description:string; instructions:string; enabled:boolean; mode:"always"|"on-demand" }
+export interface AiSettings {
+ config:{providers:LlmProviderSettings[];routing:{chat:LlmRoleTarget;draft:LlmRoleTarget;verifier:LlmRoleTarget;scanner:LlmRoleTarget};fallbackToWorkersAi:boolean};
+ skills:AgentSkillSettings[];
 }
 
 // ---------- API client ----------
 
 const api = {
 	// AI providers and agent skills
-	getLlmConfig: () => get<LlmConfig>("/api/v1/ai/config"),
-	putLlmConfig: (config: LlmConfig) => put<LlmConfig>("/api/v1/ai/config", config),
-	fetchLlmModels: (input: { kind: LlmProviderInput["kind"]; baseUrl: string; apiKey: string }) =>
-		post<{ models: { id: string; name?: string }[] }>("/api/v1/ai/models/fetch", input),
-	testLlmModel: (input: { providerId: string; model: string; role?: keyof LlmConfig["routing"] }) =>
-		post<{ ok: boolean; text?: string; error?: string }>("/api/v1/ai/test", input),
-	getAgentSkills: () => get<{ skills: AgentSkill[] }>("/api/v1/ai/skills"),
-	putAgentSkills: (skills: AgentSkill[]) => put<{ skills: AgentSkill[] }>("/api/v1/ai/skills", { skills }),
+	getAiSettings: () => get<AiSettings>("/api/v1/ai/config"),
+	saveAiConfig: (config: AiSettings["config"]) => put<AiSettings["config"]>("/api/v1/ai/config", config),
+	fetchProviderModels: (input:{kind:"openai-compatible"|"anthropic";baseUrl:string;apiKey:string}) => post<{models:string[]}>("/api/v1/ai/models/fetch",input),
+	testAiProvider: (input:{providerId:string;model:string}) => post<{ok:boolean;response?:string;error?:string}>("/api/v1/ai/test",input),
+	saveAgentSkills: (skills:AgentSkillSettings[]) => put<{skills:AgentSkillSettings[]}>("/api/v1/ai/skills",skills),
 
 	// Config
 	getConfig: () =>

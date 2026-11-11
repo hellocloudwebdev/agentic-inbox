@@ -1,10 +1,10 @@
-import type { ProviderKind, ProviderModel } from "./models";
 export type LlmRole = "chat" | "draft" | "verifier" | "scanner";
+export type ProviderKind = "openai-compatible" | "anthropic";
 export interface LlmProvider {
   id: string; name: string; kind: ProviderKind; baseUrl: string;
-  apiKeyEnc: string; models: ProviderModel[];
+  apiKeyEnc?: string; models: string[];
 }
-export interface RoleTarget { providerId: string; model: string; }
+export interface RoleTarget { providerId: string; model: string }
 export interface LlmConfig {
   providers: LlmProvider[];
   routing: Record<LlmRole, RoleTarget>;

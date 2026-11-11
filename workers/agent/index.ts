@@ -5,13 +5,12 @@
 import { AIChatAgent } from "@cloudflare/ai-chat";
 import {
 	streamText,
+	generateText,
 	convertToModelMessages,
 	stepCountIs,
 } from "ai";
-import { defaultWorkersModel, loadLlmConfig, resolveRole } from "../lib/llm/registry";
-import { createWorkersAI } from "workers-ai-provider";
-import { generateForRole } from "../lib/llm/run";
-import type { AgentSkill } from "../lib/llm/types";
+import { resolveRole } from "../lib/llm/run";
+import { AppSettingsRepository } from "../db/repositories/app-settings-repository";
 import { z } from "zod";
 import type { EmailFull, EmailMetadata } from "../lib/schemas";
 import { verifyDraft, isPromptInjection } from "../lib/ai";
@@ -35,7 +34,7 @@ import { Folders, FOLDER_TOOL_DESCRIPTION, MOVE_FOLDER_TOOL_DESCRIPTION } from "
 import type { Env } from "../types";
 import { getNeonDb, ensureNeonSchema } from "../db/neon-client";
 import { MailboxRepository } from "../db/repositories/mailbox-repository";
-import { AppSettingsRepository } from "../db/repositories/app-settings-repository";
+import type { AgentSkill } from "../lib/llm/types";
 
 // AI SDK v6 changed tool() overloads significantly. We define tools as plain
 // objects matching the Tool type to avoid overload resolution issues.
@@ -96,43 +95,28 @@ Use discard_draft to delete drafts that the operator rejects or that are no long
  * Fetch the custom system prompt for a mailbox from its settings in Neon.
  * Falls back to DEFAULT_SYSTEM_PROMPT if none is configured.
  */
-async function getEnabledSkills(env: Env): Promise<AgentSkill[]> {
-	try {
-		await ensureNeonSchema(env);
-		const repo = new AppSettingsRepository(getNeonDb(env));
-		const skills = await repo.getSetting<AgentSkill[]>("agent.skills");
-		return Array.isArray(skills) ? skills.filter((skill) => skill.enabled) : [];
-	} catch {
-		return [];
-	}
-}
-
 async function getSystemPrompt(env: Env, mailboxId: string): Promise<string> {
-	let prompt = DEFAULT_SYSTEM_PROMPT;
-	try {
-		await ensureNeonSchema(env);
-		const repo = new MailboxRepository(getNeonDb(env));
-		const settings = await repo.getMailboxSettings(mailboxId);
-		if (settings && typeof settings.agentSystemPrompt === "string" && settings.agentSystemPrompt.trim()) {
-			prompt = settings.agentSystemPrompt;
-		}
-	} catch {
-		// Keep the built-in default prompt.
-	}
-	const skills = await getEnabledSkills(env);
-	const alwaysSkills = skills.filter((skill) => skill.mode === "always");
-	const onDemandSkills = skills.filter((skill) => skill.mode === "on-demand");
-	if (alwaysSkills.length) {
-		prompt += "\n\n## Enabled Skills\n" + alwaysSkills.map((skill) =>
-			`### ${skill.name}\n${skill.instructions}`,
-		).join("\n\n");
-	}
-	if (onDemandSkills.length) {
-		prompt += "\n\n## Available On-demand Skills\n" + onDemandSkills.map((skill) =>
-			`- ${skill.name}: ${skill.description} (use load_skill with id "${skill.id}" to load its instructions)`,
-		).join("\n");
-	}
-	return prompt;
+ let prompt = DEFAULT_SYSTEM_PROMPT;
+ try {
+  await ensureNeonSchema(env);
+  const mailboxRepo = new MailboxRepository(getNeonDb(env));
+  const mailboxSettings = await mailboxRepo.getMailboxSettings(mailboxId);
+  if (typeof mailboxSettings?.agentSystemPrompt === "string" && mailboxSettings.agentSystemPrompt.trim()) {
+   prompt = mailboxSettings.agentSystemPrompt;
+  }
+ } catch { /* Use built-in prompt when mailbox settings are unavailable. */ }
+ try {
+  const settingsRepo = new AppSettingsRepository(getNeonDb(env));
+  const skills = await settingsRepo.getSetting<AgentSkill[]>("agent.skills") ?? [];
+  const enabled = skills.filter(skill => skill.enabled);
+  const always = enabled.filter(skill => skill.mode === "always");
+  const onDemand = enabled.filter(skill => skill.mode === "on-demand");
+  if (always.length) prompt += "\n\n## Enabled Skills\n" + always.map(skill => `### ${skill.name}\n${skill.instructions}`).join("\n\n");
+  if (onDemand.length) prompt += "\n\n## Available On-demand Skills\n" + onDemand.map(skill => `- ${skill.name}: ${skill.description}`).join("\n") + "\nUse load_skill with the exact skill name to retrieve full instructions when relevant.";
+ } catch (error) {
+  console.warn("Could not load agent skills:", (error as Error).message);
+ }
+ return prompt;
 }
 
 function createEmailTools(env: Env, mailboxId: string) {
@@ -285,14 +269,15 @@ function createEmailTools(env: Env, mailboxId: string) {
 		}),
 
 		load_skill: defineTool({
-			description: "Load the full instructions for an enabled on-demand agent skill by its ID. Only load a skill when its description is relevant to the current task.",
-			parameters: z.object({ id: z.string().describe("The skill ID shown in Available On-demand Skills") }),
-			execute: async ({ id }): Promise<unknown> => {
-				const skill = (await getEnabledSkills(env)).find((item) => item.id === id && item.mode === "on-demand");
-				return skill ? { id: skill.id, name: skill.name, instructions: skill.instructions } : { error: "Skill not found or disabled" };
+			description: "Load the full instructions for an enabled on-demand skill by its exact name.",
+			parameters: z.object({ name: z.string().min(1).describe("Exact skill name") }),
+			execute: async ({ name }) => {
+				const repo = new AppSettingsRepository(getNeonDb(env));
+				const skills = await repo.getSetting<AgentSkill[]>("agent.skills") ?? [];
+				const skill = skills.find(item => item.enabled && item.mode === "on-demand" && item.name.toLowerCase() === name.toLowerCase());
+				return skill ? { name: skill.name, instructions: skill.instructions } : { error: "Skill not found or disabled" };
 			},
 		}),
-
 		discard_draft: defineTool({
 			description:
 				"Delete a draft email. Use this to discard drafts that are no longer needed or were rejected by the operator.",
@@ -316,17 +301,8 @@ export class EmailAgent extends AIChatAgent<any> {
 		const tools = createEmailTools(env, mailboxId);
 		const systemPrompt = await getSystemPrompt(env, mailboxId);
 
-		let chatModel: Awaited<ReturnType<typeof resolveRole>>;
-		try {
-			chatModel = await resolveRole(env, "chat");
-		} catch (error) {
-			const config = await loadLlmConfig(env);
-			if (!config.fallbackToWorkersAi || config.routing.chat.providerId === "workers-ai") throw error;
-			console.warn("Chat provider could not be resolved; using Workers AI fallback", error);
-			chatModel = createWorkersAI({ binding: env.AI })(defaultWorkersModel("chat"));
-		}
 		const result = streamText({
-			model: chatModel,
+			model: await resolveRole(env, "chat"),
 			system: systemPrompt,
 			messages: await convertToModelMessages(this.messages),
 			tools,
@@ -439,7 +415,7 @@ export class EmailAgent extends AIChatAgent<any> {
 			// could plant an injection in an earlier email in the thread
 			// that gets included in the agent's prompt.
 			if (threadContext) {
-				const threadInjection = await isPromptInjection(env, threadContext);
+				const threadInjection = await isPromptInjection(env.AI, threadContext);
 				if (threadInjection) {
 					console.warn("Skipping auto-draft due to prompt injection in thread context:", emailData.threadId);
 					const newMessages = [
@@ -506,7 +482,8 @@ Based on the email content and thread context above, draft a reply using draft_r
 		];
 
 		try {
-			const result = await generateForRole(env, "draft", {
+			const result = await generateText({
+				model: await resolveRole(env, "draft"),
 				system: systemPrompt,
 				messages: await convertToModelMessages(messages),
 				tools,

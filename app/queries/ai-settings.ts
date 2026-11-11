@@ -1,37 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import api, { type AgentSkill, type LlmConfig, type LlmProviderInput } from "~/services/api";
-
-const keys = {
-  config: ["ai-settings", "llm-config"] as const,
-  skills: ["ai-settings", "skills"] as const,
-};
-export function useLlmConfig() {
-  return useQuery({ queryKey: keys.config, queryFn: () => api.getLlmConfig() });
+import api from "~/services/api";
+import type { AiSettings } from "~/services/api";
+const key=["ai-settings"] as const;
+export function useAiSettings(){
+ return useQuery({queryKey:key,queryFn:()=>api.getAiSettings()});
 }
-export function useSaveLlmConfig() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (config: LlmConfig) => api.putLlmConfig(config),
-    onSuccess: (config) => qc.setQueryData(keys.config, config),
-  });
+export function useSaveAiConfig(){
+ const qc=useQueryClient();
+ return useMutation({mutationFn:(config:AiSettings["config"])=>api.saveAiConfig(config),onSuccess:()=>qc.invalidateQueries({queryKey:key})});
 }
-export function useFetchLlmModels() {
-  return useMutation({
-    mutationFn: (input: { kind: LlmProviderInput["kind"]; baseUrl: string; apiKey: string }) => api.fetchLlmModels(input),
-  });
+export function useFetchProviderModels(){
+ return useMutation({mutationFn:(input:{kind:"openai-compatible"|"anthropic";baseUrl:string;apiKey:string})=>api.fetchProviderModels(input)});
 }
-export function useTestLlmModel() {
-  return useMutation({
-    mutationFn: (input: { providerId: string; model: string; role?: keyof LlmConfig["routing"] }) => api.testLlmModel(input),
-  });
+export function useTestAiProvider(){
+ return useMutation({mutationFn:(input:{providerId:string;model:string})=>api.testAiProvider(input)});
 }
-export function useAgentSkills() {
-  return useQuery({ queryKey: keys.skills, queryFn: () => api.getAgentSkills() });
-}
-export function useSaveAgentSkills() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (skills: AgentSkill[]) => api.putAgentSkills(skills),
-    onSuccess: (result) => qc.setQueryData(keys.skills, result),
-  });
+export function useSaveAgentSkills(){
+ const qc=useQueryClient();
+ return useMutation({mutationFn:(skills:AiSettings["skills"])=>api.saveAgentSkills(skills),onSuccess:()=>qc.invalidateQueries({queryKey:key})});
 }

@@ -6,7 +6,6 @@ export interface Env extends Cloudflare.Env {
 	POLICY_AUD: string;
 	TEAM_DOMAIN: string;
 	DATABASE_URL: string;
-	LLM_ENCRYPTION_KEY: string;
 	ZOHO_SMTP_HOST: string;
 	ZOHO_SMTP_PORT: string;
 	ZOHO_SMTP_USERNAME: string;

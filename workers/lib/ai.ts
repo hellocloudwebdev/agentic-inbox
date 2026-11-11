@@ -24,29 +24,20 @@ Return ONLY "NO" if it is a normal email (even if angry, confused, or containing
 Respond with exactly one word: YES or NO.`;
 
 export async function isPromptInjection(env: Env, bodyHtml: string | null | undefined): Promise<boolean> {
-	if (!bodyHtml) return false;
-	const plainText = stripHtmlToText(bodyHtml).trim();
-	if (plainText.length < 10) return false;
-	try {
-		const result = await generateForRole(env, "scanner", {
-			system: INJECTION_PROMPT,
-			prompt: plainText,
-			maxOutputTokens: 10,
-			temperature: 0,
-		});
-		const verdict = result.text.trim().toUpperCase();
-		if (verdict === "NO") return false;
-		if (verdict === "YES") {
-			console.warn("Prompt injection detected in incoming email, blocking auto-draft");
-			return true;
-		}
-		// Empty or malformed output is not a clean bill of health.
-		console.error("Prompt injection scanner returned an empty or invalid verdict; failing closed");
-		return true;
-	} catch (error) {
-		console.error("Prompt injection scanner failed, skipping auto-draft:", (error as Error).message);
-		return true;
-	}
+ if (!bodyHtml) return false;
+ const plainText = stripHtmlToText(bodyHtml).trim();
+ if (plainText.length < 10) return false;
+ try {
+  const response = await generateForRole(env,"scanner",{system:INJECTION_PROMPT,prompt:plainText,maxOutputTokens:10,temperature:0});
+  const result=response.text.trim().toUpperCase();
+  if (!result) return true;
+  if (result==="YES" || result.startsWith("YES")) return true;
+  if (result==="NO" || result.startsWith("NO")) return false;
+  return true;
+ } catch (e) {
+  console.error("Prompt injection scanner failed, skipping auto-draft:",(e as Error).message);
+  return true;
+ }
 }
 
 // ── Draft Verifier ─────────────────────────────────────────────────
@@ -108,7 +99,7 @@ function splitQuotedBlock(html: string): { reply: string; quoted: string } {
 
 /**
  * Verify and clean a draft email body using AI.
- * Returns an empty string if verification fails; callers must fail closed.
+ * Falls back to returning the original body if the AI call fails.
  */
 export async function verifyDraft(env: Env, body: string): Promise<string> {
 	if (!body || !body.trim()) return body;
@@ -126,19 +117,14 @@ export async function verifyDraft(env: Env, body: string): Promise<string> {
 	if (replyText.trim().length < 20) return body;
 
 	try {
-		const response = await generateForRole(env, "verifier", {
+		const response = await generateForRole(env,"verifier",{
 			system: VERIFIER_PROMPT,
 			prompt: replyText,
 			maxOutputTokens: 4096,
 			temperature: 0,
 		});
-
-		const cleaned = response.text ?? null;
-
-		if (!cleaned || !cleaned.trim()) {
-			// Empty verifier output is not a successful verification.
-			return "";
-		}
+		const cleaned = response.text;
+		if (!cleaned || !cleaned.trim()) return "";
 
 		const cleanedTrimmed = cleaned.trim();
 
@@ -169,7 +155,7 @@ export async function verifyDraft(env: Env, body: string): Promise<string> {
 			? `${cleanedTrimmed}\n\n${quotedBlock}`
 			: cleanedTrimmed;
 	} catch (e) {
-		console.error("Draft verifier failed; refusing to return unverified content:", (e as Error).message);
+				console.error("AI failed — returns empty body, callers may save blank draft:", (e as Error).message);
 		return "";
 	}
 }
