@@ -17,6 +17,7 @@ import {
 } from "./lib/email-helpers";
 import { SendEmailRequestSchema } from "./lib/schemas";
 import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
+import { aiSettingsRoutes } from "./routes/ai-settings";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
@@ -94,6 +95,9 @@ app.get("/api/v1/config", (c) => {
 	const emailAddresses = c.env.EMAIL_ADDRESSES ?? [];
 	return c.json({ domains, emailAddresses });
 });
+
+// -- AI provider and agent skill settings ---------------------------
+app.route("/api/v1/ai", aiSettingsRoutes);
 
 // -- Mailboxes ------------------------------------------------------
 
