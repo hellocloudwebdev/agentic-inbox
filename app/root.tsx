@@ -11,7 +11,7 @@ import {
 	TooltipProvider,
 } from "@cloudflare/kumo";
 import { WarningIcon } from "@phosphor-icons/react";
-import { ClerkProvider, useAuth } from "@clerk/react-router";
+import { ClerkProvider, useAuth, UserButton } from "@clerk/react-router";
 import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { forwardRef, useState } from "react";
@@ -97,7 +97,14 @@ function AuthenticatedOutlet() {
 		const returnTo = location.pathname + location.search;
 		return <Navigate to={`/sign-in?redirect_url=${encodeURIComponent(returnTo)}`} replace />;
 	}
-	return <Outlet />;
+	return (
+		<>
+			<header className="flex items-center justify-end border-b border-kumo-line bg-kumo-base px-4 py-2">
+				<UserButton />
+			</header>
+			<Outlet />
+		</>
+	);
 }
 
 const KumoLink = forwardRef<
