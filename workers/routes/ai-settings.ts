@@ -74,7 +74,7 @@ app.put("/config",async c=>{
  return c.json(publicConfig(config));
 });
 app.post("/models/fetch",async c=>{
- const body=z.object({kind:z.enum(["openai-compatible","anthropic"]),baseUrl:z.string().url(),apiKey:z.string().min(1)}).parse(await c.req.json());
+ const body=z.object({kind:z.enum(["openai-compatible","openai-responses","openai-chat-completions","anthropic"]),baseUrl:z.string().url(),apiKey:z.string().min(1)}).parse(await c.req.json());
  try {
   const models=await fetchProviderModels(body);
   return c.json({models});
