@@ -10,9 +10,9 @@
 		"nodejs_compat"
 	],
 	"vars": {
-		// Production deploys must also define POLICY_AUD and TEAM_DOMAIN.
-		// TEAM_DOMAIN may be the base Access URL or the full /cdn-cgi/access/certs URL.
-		// The worker now fails closed outside local development if Access is not configured.
+		// Only this verified Clerk Google account is authorized to access mailbox data.
+		"CLERK_PUBLISHABLE_KEY": "pk_test_Y2FwYWJsZS1yYW0tNTk2MS5jbGVyay5hY2NvdW50cy5kZXYk",
+		"CLERK_ALLOWED_EMAIL": "hellocloud.webdev@gmail.com",
 		// DATABASE_URL is set as a secret via `wrangler secret put DATABASE_URL` (or in .dev.vars for local dev).
 		"DOMAINS": "neerajsingh.me",
 		"EMAIL_ADDRESSES": [],

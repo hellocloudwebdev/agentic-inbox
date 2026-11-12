@@ -52,13 +52,15 @@
 		"react": "^19.1.0",
 		"react-dom": "^19.1.0",
 		"react-markdown": "^10.1.0",
-		"react-router": "^7.5.3",
+		"react-router": "^7.9.0",
 		"remark-gfm": "^4.0.1",
 		"workers-ai-provider": "^3.1.2",
 		"zod": "^3.25.76",
 		"zustand": "^5.0.12",
 		"@ai-sdk/openai-compatible": "2.0.93",
-		"@ai-sdk/anthropic": "3.0.142"
+		"@ai-sdk/anthropic": "3.0.142",
+		"@clerk/backend": "^3.27.0",
+		"@clerk/react-router": "^3.7.0"
 	},
 	"overrides": {
 		"@cloudflare/kumo": {
@@ -92,7 +94,7 @@
 	"devDependencies": {
 		"@cloudflare/vite-plugin": "^1.0.12",
 		"@cloudflare/workers-types": "^4.20251128.0",
-		"@react-router/dev": "^7.5.3",
+		"@react-router/dev": "^7.9.0",
 		"@tailwindcss/vite": "^4.1.4",
 		"@types/dompurify": "^3.0.5",
 		"@types/node": "^20.19.37",

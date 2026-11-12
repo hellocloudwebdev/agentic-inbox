@@ -4,7 +4,7 @@
 
 import { routeAgentRequest } from "agents";
 import { Hono } from "hono";
-import { jwtVerify, createRemoteJWKSet } from "jose";
+import { authenticateClerkRequest } from "./lib/clerk-auth";
 import { createRequestHandler } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
 import { EmailMCP } from "./mcp";
@@ -28,55 +28,47 @@ const requestHandler = createRequestHandler(
 	import.meta.env.MODE,
 );
 
-function getAccessUrls(teamDomain: string) {
-	const certsPath = "/cdn-cgi/access/certs";
-	const teamUrl = new URL(teamDomain);
-	const issuer = teamUrl.origin;
-	const certsUrl = teamUrl.pathname.endsWith(certsPath)
-		? teamUrl
-		: new URL(certsPath, issuer);
-
-	return { issuer, certsUrl };
-}
-
 // Main app that wraps the API and adds React Router fallback
 const app = new Hono<{ Bindings: Env }>();
 
-// Cloudflare Access JWT validation middleware (production only)
+// Clerk replaces Cloudflare Access OTP as the application's authentication boundary.
+// Keep the sign-in route and static assets public; protect every API, MCP, mailbox,
+// and Agent WebSocket request with a verified Clerk session.
 app.use("*", async (c, next) => {
-	// Skip validation in development
-	if (import.meta.env.DEV) {
-		return next();
+	const pathname = new URL(c.req.url).pathname;
+	const isPublicSignIn = pathname === "/sign-in" || pathname.startsWith("/sign-in/");
+	const isPublicAsset =
+		pathname.startsWith("/assets/") ||
+		pathname.startsWith("/_build/") ||
+		pathname.startsWith("/favicon") ||
+		pathname === "/robots.txt" ||
+		pathname === "/manifest.webmanifest";
+
+	if (isPublicSignIn || isPublicAsset) return next();
+
+	if (!c.env.CLERK_JWT_KEY || !c.env.CLERK_ALLOWED_EMAIL) {
+		return c.text("Clerk authentication is not configured. Set CLERK_JWT_KEY and CLERK_ALLOWED_EMAIL.", 503);
 	}
 
-	const { POLICY_AUD, TEAM_DOMAIN } = c.env;
+	const user = await authenticateClerkRequest(c.req.raw, c.env);
+	if (!user) {
+		const url = new URL(c.req.url);
+		const isApiOrAgent =
+			pathname.startsWith("/api/") ||
+			pathname.startsWith("/agents/") ||
+			pathname === "/mcp" ||
+			pathname.startsWith("/mcp/") ||
+			c.req.header("Upgrade")?.toLowerCase() === "websocket";
 
-	// Fail closed in production if Access is not configured.
-	if (!POLICY_AUD || !TEAM_DOMAIN) {
-		return c.text(
-			"Cloudflare Access must be configured in production. Set POLICY_AUD and TEAM_DOMAIN.",
-			500,
-		);
+		if (isApiOrAgent) {
+			return c.json({ error: "Unauthorized. Sign in with your authorized Google account." }, 401);
+		}
+
+		const redirectUrl = new URL("/sign-in", url.origin);
+		redirectUrl.searchParams.set("redirect_url", url.pathname + url.search);
+		return c.redirect(redirectUrl.toString(), 302);
 	}
 
-	const token = c.req.header("cf-access-jwt-assertion");
-	if (!token) {
-		return c.text("Missing required CF Access JWT", 403);
-	}
-
-	try {
-		const { issuer, certsUrl } = getAccessUrls(TEAM_DOMAIN);
-		const JWKS = createRemoteJWKSet(certsUrl);
-		await jwtVerify(token, JWKS, {
-			issuer,
-			audience: POLICY_AUD,
-		});
-	} catch {
-		return c.text("Invalid or expired Access token", 403);
-	}
-
-	// Authorization model note: once a teammate passes the shared Cloudflare
-	// Access policy, they can access all mailboxes in this app by design.
 	return next();
 });
 
