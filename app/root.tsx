@@ -167,6 +167,8 @@ export default function App() {
 }
 
 export function ErrorBoundary({ error }: { error: unknown }) {
+	// Keep production diagnostics in the Worker logs without exposing internals to visitors.
+	console.error("Agentic Inbox root route error:", error);
 	let title = "Something went wrong";
 	let description = "An unexpected error occurred. Please try again.";
 	let status: number | null = null;
