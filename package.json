@@ -59,6 +59,7 @@
 		"zustand": "^5.0.12",
 		"@ai-sdk/openai-compatible": "2.0.93",
 		"@ai-sdk/anthropic": "3.0.142",
+		"@ai-sdk/openai": "^3.0.141",
 		"@ai-sdk/react": "^3.0.333",
 		"@clerk/backend": "^3.27.0",
 		"@clerk/react-router": "^3.7.0"
