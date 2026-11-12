@@ -140,7 +140,10 @@ export function AiConfiguration() {
   const routeFallback = (role: typeof roles[number], index: number, value: LlmRoleTarget) =>
     setConfig((old) => {
       const current = old.fallbacks?.[role] ?? [];
-      const next = [...current];
+      const next = [
+        current[0] ?? { providerId: "", model: "" },
+        current[1] ?? { providerId: "", model: "" },
+      ];
       next[index] = value;
       return { ...old, fallbacks: { ...old.fallbacks, [role]: next.slice(0, 2) } };
     });
