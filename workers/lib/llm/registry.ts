@@ -12,7 +12,7 @@ export async function resolveProviderModel(env: Env, provider: LlmProvider, mode
  const apiKey=await decryptApiKey(provider.apiKeyEnc,env.LLM_ENCRYPTION_KEY);
  const baseURL=assertSafeProviderUrl(provider.baseUrl).toString().replace(/\/$/,"");
  if(provider.kind==="anthropic") return createAnthropic({apiKey,baseURL})(modelId);
- if(provider.kind==="openai-responses") return createOpenAI({apiKey,baseURL})(modelId);
+ if(provider.kind==="openai-responses") return createOpenAI({apiKey,baseURL}).responses(modelId);
  if(provider.kind==="openai-chat-completions") return createOpenAI({apiKey,baseURL}).chat(modelId);
  return createOpenAICompatible({name:provider.id,apiKey,baseURL})(modelId);
 }
