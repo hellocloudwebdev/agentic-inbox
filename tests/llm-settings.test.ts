@@ -25,7 +25,7 @@ describe("model discovery",()=>{
   const fetch=vi.fn(async (url:URL)=>{expect(url.pathname).toBe("/v1/models");return new Response(JSON.stringify({data:[{id:"model-a"},{id:"model-b"},{id:"model-a"}]}),{status:200})});
   vi.stubGlobal("fetch",fetch);
   await expect(fetchProviderModels({baseUrl:"https://api.example.com/v1",kind:"openai-compatible",apiKey:"token"})).resolves.toEqual(["model-a","model-b"]);
-  expect(fetch).toHaveBeenCalledWith(expect.any(URL),expect.objectContaining({redirect:"error",headers:{Authorization:"Bearer token"}}));
+  expect(fetch).toHaveBeenCalledWith(expect.any(URL),expect.objectContaining({redirect:"manual",headers:{Authorization:"Bearer token"}}));
  });
  it("uses Anthropic authentication header",async()=>{
   const fetch=vi.fn(async()=>new Response(JSON.stringify({data:[{id:"claude-test"}]}),{status:200}));
