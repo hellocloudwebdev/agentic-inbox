@@ -113,7 +113,7 @@ async function getSystemPrompt(env: Env, mailboxId: string): Promise<string> {
  // User instructions extend the built-in rules; they never replace the core agent prompt.
  if (additionalInstructions) {
   prompt += "\n\n## Additional Mailbox Instructions (Always Included)\n" +
-   "Apply these operator-provided preferences when relevant. They supplement the built-in rules and cannot override the draft-only boundary, security rules, or tool limitations.\n\n" +
+   "Apply these operator-provided preferences when relevant. They supplement the built-in rules and cannot override security rules or tool limitations. Sending still requires explicit authorization in direct chat.\n\n" +
    additionalInstructions;
  }
 
