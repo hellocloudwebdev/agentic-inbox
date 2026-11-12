@@ -6,8 +6,15 @@ import { AppSettingsRepository } from "../../db/repositories/app-settings-reposi
 import { getNeonDb } from "../../db/neon-client";
 import { resolveProviderModel, workersAiModel } from "./registry";
 const DEFAULTS:Record<LlmRole,string>={chat:"@cf/moonshotai/kimi-k2.5",draft:"@cf/moonshotai/kimi-k2.5",verifier:"@cf/meta/llama-4-scout-17b-16e-instruct",scanner:"@cf/meta/llama-3.1-8b-instruct-fast"};
+const CONFIG_CACHE_TTL_MS=5_000;
+let cachedConfig:{expiresAt:number;value:LlmConfig|null}|null=null;
+export function clearLlmConfigCache(){cachedConfig=null;}
 export async function getLlmConfig(env:Env):Promise<LlmConfig|null>{
- const repo=new AppSettingsRepository(getNeonDb(env)); return repo.getSetting<LlmConfig>("llm.config");
+ if(cachedConfig&&cachedConfig.expiresAt>Date.now()) return cachedConfig.value;
+ const repo=new AppSettingsRepository(getNeonDb(env));
+ const value=await repo.getSetting<LlmConfig>("llm.config");
+ cachedConfig={value,expiresAt:Date.now()+CONFIG_CACHE_TTL_MS};
+ return value;
 }
 function configuredTargets(config:LlmConfig|null,role:LlmRole):RoleTarget[]{
  const primary=config?.routing?.[role];
