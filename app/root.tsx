@@ -23,7 +23,6 @@ import {
 	Outlet,
 	Link as RouterLink,
 	useLocation,
-	useLoaderData,
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
