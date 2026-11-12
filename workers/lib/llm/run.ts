@@ -1,4 +1,5 @@
 import { generateText } from "ai";
+import { createFallback } from "ai-fallback";
 import type { Env } from "../../types";
 import type { LlmRole, LlmConfig, RoleTarget } from "./types";
 import { AppSettingsRepository } from "../../db/repositories/app-settings-repository";
@@ -12,48 +13,32 @@ function configuredTargets(config:LlmConfig|null,role:LlmRole):RoleTarget[]{
  const primary=config?.routing?.[role];
  return [primary,...(config?.fallbacks?.[role]??[])].filter((target):target is RoleTarget=>!!target?.providerId&&!!target.model);
 }
-/** Resolve the first configured model whose credentials/provider can be initialized. */
+/**
+ * Build a request-level fallback model. AI SDK retries the next model when a
+ * provider fails before producing output, including streaming chat requests.
+ */
 export async function resolveRole(env:Env,role:LlmRole){
  const config=await getLlmConfig(env);
  const targets=configuredTargets(config,role);
- if(!targets.length) return workersAiModel(env,DEFAULTS[role]);
+ const models=[];
  let lastError:unknown;
  for(const target of targets){
   try{
    const provider=config?.providers?.find(p=>p.id===target.providerId);
    if(!provider) throw new Error(`No provider configured for ${role}: ${target.providerId}`);
-   return await resolveProviderModel(env,provider,target.model);
+   models.push(await resolveProviderModel(env,provider,target.model));
   }catch(error){
    lastError=error;
-   console.warn(`Could not initialize ${role} model ${target.providerId}/${target.model}; trying next fallback.`,error);
+   console.warn(`Could not initialize ${role} model ${target.providerId}/${target.model}; skipping it.`,error);
   }
  }
- if(config?.fallbackToWorkersAi!==false){
-  console.warn(`All configured ${role} models failed to initialize; using Workers AI.`,lastError);
+ if(config?.fallbackToWorkersAi!==false) models.push(workersAiModel(env,DEFAULTS[role]));
+ if(!models.length){
+  if(lastError instanceof Error) throw lastError;
   return workersAiModel(env,DEFAULTS[role]);
  }
- throw lastError instanceof Error?lastError:new Error(`No usable model configured for ${role}`);
+ return models.length===1?models[0]:createFallback({models});
 }
-/** Non-streaming tasks retry the next configured model after provider request failures. */
 export async function generateForRole(env:Env,role:LlmRole,options:Omit<Parameters<typeof generateText>[0],"model">){
- const config=await getLlmConfig(env);
- const targets=configuredTargets(config,role);
- let lastError:unknown;
- for(const target of targets){
-  try{
-   const provider=config?.providers?.find(p=>p.id===target.providerId);
-   if(!provider) throw new Error(`No provider configured for ${role}: ${target.providerId}`);
-   const model=await resolveProviderModel(env,provider,target.model);
-   return await generateText({...options,model});
-  }catch(error){
-   lastError=error;
-   console.warn(`LLM ${role} model ${target.providerId}/${target.model} failed; trying next fallback.`,error);
-  }
- }
- if(config?.fallbackToWorkersAi!==false){
-  try{return await generateText({...options,model:workersAiModel(env,DEFAULTS[role])});}
-  catch(error){lastError=error;}
- }
- if(lastError instanceof Error) throw lastError;
- return generateText({...options,model:workersAiModel(env,DEFAULTS[role])});
+ return generateText({...options,model:await resolveRole(env,role)});
 }
