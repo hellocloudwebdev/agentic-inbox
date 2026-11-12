@@ -12,13 +12,19 @@ import type { AgentSkill, LlmConfig, LlmProvider, ProviderKind } from "../lib/ll
 const app = new Hono<{ Bindings: Env }>();
 const providerSchema = z.object({
  id:z.string().min(1).max(80), name:z.string().min(1).max(120),
- kind:z.enum(["openai-compatible","anthropic"]), baseUrl:z.string().url(),
+ kind:z.enum(["openai-compatible","openai-responses","openai-chat-completions","anthropic"]), baseUrl:z.string().url(),
  apiKey:z.string().optional(), models:z.array(z.string().min(1)).max(500).default([]),
 });
 const roleSchema=z.object({providerId:z.string(),model:z.string()});
 const configSchema=z.object({
  providers:z.array(providerSchema).max(30),
  routing:z.object({chat:roleSchema,draft:roleSchema,verifier:roleSchema,scanner:roleSchema}),
+ fallbacks:z.object({
+  chat:z.array(roleSchema).max(2).default([]),
+  draft:z.array(roleSchema).max(2).default([]),
+  verifier:z.array(roleSchema).max(2).default([]),
+  scanner:z.array(roleSchema).max(2).default([]),
+ }).optional(),
  fallbackToWorkersAi:z.boolean().default(true),
 });
 const skillSchema=z.object({
@@ -53,11 +59,14 @@ app.put("/config",async c=>{
   if(!apiKeyEnc) throw new Error(`API key required for provider ${item.name}`);
   providers.push({id:item.id,name:item.name,kind:item.kind,baseUrl:item.baseUrl,apiKeyEnc,models:item.models});
  }
- const config:LlmConfig={providers,routing:parsed.routing,fallbackToWorkersAi:parsed.fallbackToWorkersAi};
+ const config:LlmConfig={providers,routing:parsed.routing,fallbacks:parsed.fallbacks,fallbackToWorkersAi:parsed.fallbackToWorkersAi};
  for(const role of ["chat","draft","verifier","scanner"] as const){
   const target=config.routing[role];
-  if(target.providerId && !providers.some(p=>p.id===target.providerId&&p.models.includes(target.model)))
-   return c.json({error:`Invalid ${role} model routing`},400);
+  const targets=[target,...(parsed.fallbacks?.[role]??[])].filter(item=>item.providerId);
+  for(const candidate of targets){
+   if(!providers.some(p=>p.id===candidate.providerId&&p.models.includes(candidate.model)))
+    return c.json({error:`Invalid ${role} fallback model routing`},400);
+  }
  }
  await repo.setSetting("llm.config",config);
  return c.json(publicConfig(config));
