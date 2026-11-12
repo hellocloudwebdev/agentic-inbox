@@ -4,6 +4,7 @@
 
 export interface Env extends Cloudflare.Env {
 	CLERK_PUBLISHABLE_KEY: string;
+	CLERK_SECRET_KEY: string;
 	CLERK_JWT_KEY: string;
 	CLERK_ALLOWED_EMAIL: string;
 	DATABASE_URL: string;
