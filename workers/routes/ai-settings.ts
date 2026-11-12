@@ -36,7 +36,7 @@ async function repository(env:Env) {
  return new AppSettingsRepository(getNeonDb(env));
 }
 function publicConfig(config:LlmConfig|null) {
- if(!config) return {providers:[],routing:{chat:{providerId:"",model:""},draft:{providerId:"",model:""},verifier:{providerId:"",model:""},scanner:{providerId:"",model:""}},fallbackToWorkersAi:true};
+ if(!config) return {providers:[],routing:{chat:{providerId:"",model:""},draft:{providerId:"",model:""},verifier:{providerId:"",model:""},scanner:{providerId:"",model:""}},fallbacks:{chat:[],draft:[],verifier:[],scanner:[]},fallbackToWorkersAi:true};
  return {...config,providers:config.providers.map(({apiKeyEnc,...provider})=>({...provider,hasKey:!!apiKeyEnc}))};
 }
 app.get("/config",async c=>{
