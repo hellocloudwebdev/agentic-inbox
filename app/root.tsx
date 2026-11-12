@@ -30,11 +30,19 @@ import { ApiError } from "~/services/api";
 import type { Route } from "./+types/root";
 import "./index.css";
 
+type ClerkWorkerGlobals = typeof globalThis & {
+	CLERK_PUBLISHABLE_KEY?: string;
+};
+
+const clerkWorkerGlobals = globalThis as ClerkWorkerGlobals;
+
 export const middleware: Route.MiddlewareFunction[] = [clerkMiddleware()];
 
 export function loader(args: Route.LoaderArgs) {
-	return rootAuthLoader(args, ({ context }) => ({
-		clerkPublishableKey: context.cloudflare.env.CLERK_PUBLISHABLE_KEY || "",
+	return rootAuthLoader(args, () => ({
+		// React Router v7 middleware uses a RouterContextProvider. Read the
+		// client-safe key from the Worker runtime fallback populated in workers/app.ts.
+		clerkPublishableKey: clerkWorkerGlobals.CLERK_PUBLISHABLE_KEY || "",
 	}));
 }
 
