@@ -22,15 +22,18 @@ const emptyConfig: AiSettings["config"] = {
     verifier: { providerId: "", model: "" },
     scanner: { providerId: "", model: "" },
   },
+  fallbacks: { chat: [], draft: [], verifier: [], scanner: [] },
   fallbackToWorkersAi: true,
 };
 
 const presets = [
-  { name: "OpenRouter", kind: "openai-compatible" as const, baseUrl: "https://openrouter.ai/api/v1" },
+  { name: "OpenRouter (Compatible)", kind: "openai-compatible" as const, baseUrl: "https://openrouter.ai/api/v1" },
+  { name: "OpenAI Responses", kind: "openai-responses" as const, baseUrl: "https://api.openai.com/v1" },
+  { name: "OpenAI Chat Completions", kind: "openai-chat-completions" as const, baseUrl: "https://api.openai.com/v1" },
   { name: "Groq", kind: "openai-compatible" as const, baseUrl: "https://api.groq.com/openai/v1" },
   { name: "DeepSeek", kind: "openai-compatible" as const, baseUrl: "https://api.deepseek.com" },
   { name: "Google Gemini", kind: "openai-compatible" as const, baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai" },
-  { name: "Anthropic", kind: "anthropic" as const, baseUrl: "https://api.anthropic.com/v1" },
+  { name: "Anthropic Messages", kind: "anthropic" as const, baseUrl: "https://api.anthropic.com/v1" },
 ];
 
 const roles = ["chat", "draft", "verifier", "scanner"] as const;
@@ -58,7 +61,7 @@ export function AiConfiguration() {
   const [config, setConfig] = useState<AiSettings["config"]>(emptyConfig);
   const [skills, setSkills] = useState<AgentSkillSettings[]>([]);
   const [providerName, setProviderName] = useState("OpenRouter");
-  const [kind, setKind] = useState<"openai-compatible" | "anthropic">("openai-compatible");
+  const [kind, setKind] = useState<"openai-compatible" | "openai-responses" | "openai-chat-completions" | "anthropic">("openai-compatible");
   const [baseUrl, setBaseUrl] = useState(presets[0].baseUrl);
   const [apiKey, setApiKey] = useState("");
   const [models, setModels] = useState<string[]>([]);
@@ -133,6 +136,31 @@ export function AiConfiguration() {
 
   const route = (role: typeof roles[number], value: LlmRoleTarget) =>
     setConfig((old) => ({ ...old, routing: { ...old.routing, [role]: value } }));
+
+  const routeFallback = (role: typeof roles[number], index: number, value: LlmRoleTarget) =>
+    setConfig((old) => {
+      const current = old.fallbacks?.[role] ?? [];
+      const next = [
+        current[0] ?? { providerId: "", model: "" },
+        current[1] ?? { providerId: "", model: "" },
+      ];
+      next[index] = value;
+      return { ...old, fallbacks: { ...old.fallbacks, [role]: next.slice(0, 2) } };
+    });
+
+  const modelOptions = (value: LlmRoleTarget, onChange: (value: LlmRoleTarget) => void) => (
+    <select className="w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm"
+      value={value.providerId + "|" + value.model}
+      onChange={(event) => {
+        const [providerId, model] = event.target.value.split("|");
+        onChange({ providerId, model });
+      }}>
+      <option value="|">Workers AI (built-in)</option>
+      {config.providers.flatMap((provider) => provider.models.map((model) => (
+        <option key={provider.id + "|" + model} value={provider.id + "|" + model}>{provider.name} / {model}</option>
+      )))}
+    </select>
+  );
 
   const resetSkillForm = () => {
     setSkillName("");
@@ -227,7 +255,9 @@ export function AiConfiguration() {
             API type
             <select className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}>
               <option value="openai-compatible">OpenAI-compatible</option>
-              <option value="anthropic">Anthropic</option>
+              <option value="openai-responses">OpenAI Responses API</option>
+              <option value="openai-chat-completions">OpenAI Chat Completions</option>
+              <option value="anthropic">Anthropic Messages API</option>
             </select>
           </label>
           <label className="text-xs text-kumo-subtle">
@@ -288,22 +318,20 @@ export function AiConfiguration() {
         <div className="space-y-3 border-t border-kumo-line pt-4">
           <div className="text-sm font-medium">Model routing</div>
           {roles.map((role) => (
-            <label key={role} className="grid gap-1 text-xs capitalize text-kumo-subtle sm:grid-cols-[100px_1fr] sm:items-center">
-              <span>{role}</span>
-              <select
-                className="w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm"
-                value={config.routing[role].providerId + "|" + config.routing[role].model}
-                onChange={(event) => {
-                  const [providerId, model] = event.target.value.split("|");
-                  route(role, { providerId, model });
-                }}
-              >
-                <option value="|">Workers AI (built-in)</option>
-                {config.providers.flatMap((provider) => provider.models.map((model) => (
-                  <option key={provider.id + "|" + model} value={provider.id + "|" + model}>{provider.name} / {model}</option>
-                )))}
-              </select>
-            </label>
+            <div key={role} className="space-y-2 rounded-lg border border-kumo-line p-3">
+              <div className="text-sm font-medium capitalize">{role}</div>
+              <label className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
+                <span>Primary model</span>
+                {modelOptions(config.routing[role], (value) => route(role, value))}
+              </label>
+              {[0, 1].map((index) => (
+                <label key={index} className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
+                  <span>Fallback {index + 1}</span>
+                  {modelOptions(config.fallbacks?.[role]?.[index] ?? { providerId: "", model: "" }, (value) => routeFallback(role, index, value))}
+                </label>
+              ))}
+              <p className="text-[11px] text-kumo-subtle">Fallbacks run in order. You can select models from different providers or reuse the same provider.</p>
+            </div>
           ))}
         </div>
         <label className="flex items-center gap-2 text-sm">
