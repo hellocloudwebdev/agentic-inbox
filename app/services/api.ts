@@ -92,11 +92,11 @@ interface EmailListResponse {
 	totalCount: number;
 }
 
-export interface LlmProviderSettings { id:string; name:string; kind:"openai-compatible"|"anthropic"; baseUrl:string; models:string[]; hasKey:boolean; apiKey?:string }
+export interface LlmProviderSettings { id:string; name:string; kind:"openai-compatible"|"openai-responses"|"openai-chat-completions"|"anthropic"; baseUrl:string; models:string[]; hasKey:boolean; apiKey?:string }
 export interface LlmRoleTarget { providerId:string; model:string }
 export interface AgentSkillSettings { id:string; name:string; description:string; instructions:string; enabled:boolean; mode:"always"|"on-demand" }
 export interface AiSettings {
- config:{providers:LlmProviderSettings[];routing:{chat:LlmRoleTarget;draft:LlmRoleTarget;verifier:LlmRoleTarget;scanner:LlmRoleTarget};fallbackToWorkersAi:boolean};
+ config:{providers:LlmProviderSettings[];routing:{chat:LlmRoleTarget;draft:LlmRoleTarget;verifier:LlmRoleTarget;scanner:LlmRoleTarget};fallbacks?:Partial<Record<"chat"|"draft"|"verifier"|"scanner",LlmRoleTarget[]>>;fallbackToWorkersAi:boolean};
  skills:AgentSkillSettings[];
 }
 
@@ -106,7 +106,7 @@ const api = {
 	// AI providers and agent skills
 	getAiSettings: () => get<AiSettings>("/api/v1/ai/config"),
 	saveAiConfig: (config: AiSettings["config"]) => put<AiSettings["config"]>("/api/v1/ai/config", config),
-	fetchProviderModels: (input:{kind:"openai-compatible"|"anthropic";baseUrl:string;apiKey:string}) => post<{models:string[]}>("/api/v1/ai/models/fetch",input),
+	fetchProviderModels: (input:{kind:"openai-compatible"|"openai-responses"|"openai-chat-completions"|"anthropic";baseUrl:string;apiKey:string}) => post<{models:string[]}>("/api/v1/ai/models/fetch",input),
 	testAiProvider: (input:{providerId:string;model:string}) => post<{ok:boolean;response?:string;error?:string}>("/api/v1/ai/test",input),
 	saveAgentSkills: (skills:AgentSkillSettings[]) => put<{skills:AgentSkillSettings[]}>("/api/v1/ai/skills",skills),
 
