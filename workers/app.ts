@@ -23,6 +23,13 @@ declare module "react-router" {
 	}
 }
 
+type ClerkWorkerGlobals = typeof globalThis & {
+	CLERK_SECRET_KEY?: string;
+	CLERK_PUBLISHABLE_KEY?: string;
+};
+
+const clerkWorkerGlobals = globalThis as ClerkWorkerGlobals;
+
 const requestHandler = createRequestHandler(
 	() => import("virtual:react-router/server-build"),
 	import.meta.env.MODE,
@@ -94,6 +101,13 @@ app.all("/agents/*", async (c) => {
 
 // React Router catch-all: serves the SPA for all non-API routes
 app.all("*", (c) => {
+	// React Router v7 middleware runs before loaders with a RouterContextProvider.
+	// In this runtime the Cloudflare bindings are not reliably exposed on that
+	// middleware context, so seed Clerk's documented globalThis env fallback.
+	// These values are constant for this Worker environment, not user-specific.
+	clerkWorkerGlobals.CLERK_SECRET_KEY = c.env.CLERK_SECRET_KEY;
+	clerkWorkerGlobals.CLERK_PUBLISHABLE_KEY = c.env.CLERK_PUBLISHABLE_KEY;
+
 	return requestHandler(c.req.raw, {
 		cloudflare: { env: c.env, ctx: c.executionCtx as ExecutionContext },
 	});
