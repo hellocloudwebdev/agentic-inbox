@@ -7,7 +7,7 @@ export async function fetchProviderModels(input: { baseUrl: string; kind: Provid
  const headers:Record<string,string> = input.kind==="anthropic"
   ? {"x-api-key":input.apiKey,"anthropic-version":"2023-06-01"}
   : {Authorization:`Bearer ${input.apiKey}`};
- const response=await fetch(endpoint,{headers,redirect:"error"});
+ const response=await fetch(endpoint,{headers,redirect:"manual"});
  if(!response.ok) throw new Error(`Provider model discovery failed (${response.status})`);
  const body=await response.json() as {data?:Array<{id?:unknown}>;models?:Array<{name?:unknown;id?:unknown}>};
  const ids=(body.data??body.models??[]).map(x=>typeof x.id==="string"?x.id:typeof x.name==="string"?x.name:"").filter(Boolean);
