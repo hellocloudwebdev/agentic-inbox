@@ -5,7 +5,7 @@
 import { routeAgentRequest } from "agents";
 import { Hono } from "hono";
 import { authenticateClerkRequest } from "./lib/clerk-auth";
-import { createRequestHandler } from "react-router";
+import { createRequestHandler, RouterContextProvider } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
 import { EmailMCP } from "./mcp";
 import type { Env } from "./types";
@@ -13,15 +13,6 @@ import type { Env } from "./types";
 export { MailboxDO } from "./durableObject";
 export { EmailAgent } from "./agent";
 export { EmailMCP } from "./mcp";
-
-declare module "react-router" {
-	export interface AppLoadContext {
-		cloudflare: {
-			env: Env;
-			ctx: ExecutionContext;
-		};
-	}
-}
 
 type ClerkWorkerGlobals = typeof globalThis & {
 	CLERK_SECRET_KEY?: string;
@@ -108,9 +99,7 @@ app.all("*", (c) => {
 	clerkWorkerGlobals.CLERK_SECRET_KEY = c.env.CLERK_SECRET_KEY;
 	clerkWorkerGlobals.CLERK_PUBLISHABLE_KEY = c.env.CLERK_PUBLISHABLE_KEY;
 
-	return requestHandler(c.req.raw, {
-		cloudflare: { env: c.env, ctx: c.executionCtx as ExecutionContext },
-	});
+	return requestHandler(c.req.raw, new RouterContextProvider());
 });
 
 // Export the Hono app as the default export with an email handler
