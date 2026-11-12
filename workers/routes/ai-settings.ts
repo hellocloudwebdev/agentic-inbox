@@ -7,6 +7,7 @@ import { getNeonDb, ensureNeonSchema } from "../db/neon-client";
 import { encryptApiKey, decryptApiKey } from "../lib/llm/crypto";
 import { fetchProviderModels } from "../lib/llm/models";
 import { resolveProviderModel } from "../lib/llm/registry";
+import { clearLlmConfigCache } from "../lib/llm/run";
 import type { AgentSkill, LlmConfig, LlmProvider, ProviderKind } from "../lib/llm/types";
 
 const app = new Hono<{ Bindings: Env }>();
@@ -69,6 +70,7 @@ app.put("/config",async c=>{
   }
  }
  await repo.setSetting("llm.config",config);
+ clearLlmConfigCache();
  return c.json(publicConfig(config));
 });
 app.post("/models/fetch",async c=>{
