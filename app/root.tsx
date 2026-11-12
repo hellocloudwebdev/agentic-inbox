@@ -12,6 +12,7 @@ import {
 } from "@cloudflare/kumo";
 import { WarningIcon } from "@phosphor-icons/react";
 import { ClerkProvider, useAuth } from "@clerk/react-router";
+import { clerkMiddleware, rootAuthLoader } from "@clerk/react-router/server";
 import { MutationCache, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { forwardRef, useState } from "react";
 import {
@@ -22,7 +23,6 @@ import {
 	Outlet,
 	Link as RouterLink,
 	useLocation,
-	useLoaderData,
 	Scripts,
 	ScrollRestoration,
 } from "react-router";
@@ -30,8 +30,12 @@ import { ApiError } from "~/services/api";
 import type { Route } from "./+types/root";
 import "./index.css";
 
-export function loader({ context }: Route.LoaderArgs) {
-	return { clerkPublishableKey: context.cloudflare.env.CLERK_PUBLISHABLE_KEY || "" };
+export const middleware: Route.MiddlewareFunction[] = [clerkMiddleware()];
+
+export function loader(args: Route.LoaderArgs) {
+	return rootAuthLoader(args, ({ context }) => ({
+		clerkPublishableKey: context.cloudflare.env.CLERK_PUBLISHABLE_KEY || "",
+	}));
 }
 
 function makeQueryClient() {
@@ -140,9 +144,9 @@ export function HydrateFallback() {
 	);
 }
 
-export default function App() {
+export default function App({ loaderData }: Route.ComponentProps) {
 	const [queryClient] = useState(getQueryClient);
-	const { clerkPublishableKey } = useLoaderData<typeof loader>();
+	const { clerkPublishableKey } = loaderData;
 
 	if (!clerkPublishableKey) {
 		return (
@@ -154,7 +158,7 @@ export default function App() {
 	}
 
 	return (
-		<ClerkProvider publishableKey={clerkPublishableKey}>
+		<ClerkProvider publishableKey={clerkPublishableKey} loaderData={loaderData}>
 			<QueryClientProvider client={queryClient}>
 				<LinkProvider component={KumoLink}>
 					<TooltipProvider>
