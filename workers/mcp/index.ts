@@ -82,7 +82,8 @@ export class EmailMCP extends McpAgent<Env> {
 					await ensureNeonSchema(env);
 					const repo = new MailboxRepository(getNeonDb(env));
 					const box = await repo.getMailbox(normalizeMailboxId(mailboxId));
-					return getEmailAutomationSettings(box?.settings).allowMcpSend;
+					const permissions = getEmailAutomationSettings(box?.settings);
+					return permissions;
 				} catch (error) {
 					console.error("Could not load MCP send permissions:", error instanceof Error ? error.message : String(error));
 					return false;
@@ -347,8 +348,8 @@ export class EmailMCP extends McpAgent<Env> {
 			async ({ mailboxId, originalEmailId, to, subject, bodyHtml }) => {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
-				if (!(await canMcpSend(mailboxId))) {
-					return mcpError("MCP email sending is disabled in Settings. Enable MCP send permission before using send_reply.");
+				if (!(await canMcpSend(mailboxId)).allowMcpSendReplies) {
+					return mcpError("MCP replies are disabled in Settings. Enable the MCP reply permission before using send_reply.");
 				}
 				const result = await toolSendReply(env, mailboxId, {
 					originalEmailId,
@@ -389,8 +390,8 @@ export class EmailMCP extends McpAgent<Env> {
 			async ({ mailboxId, to, subject, bodyHtml }) => {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
-				if (!(await canMcpSend(mailboxId))) {
-					return mcpError("MCP email sending is disabled in Settings. Enable MCP send permission before using send_email.");
+				if (!(await canMcpSend(mailboxId)).allowMcpSendNewEmails) {
+					return mcpError("MCP new-email sending is disabled in Settings. Enable the MCP new-email permission before using send_email.");
 				}
 				const result = await toolSendEmail(env, mailboxId, {
 					to,
