@@ -86,6 +86,22 @@ describe("Zoho SMTP sender", () => {
 		expect(closeMock).toHaveBeenCalledTimes(1);
 	});
 
+	it("strips CRLF from SMTP headers and display fields", async () => {
+		await sendEmail({ ...smtpEnv, ZOHO_SMTP_FROM_NAME: "Agent\r\nBcc: attacker@example.com" }, {
+			from: "mail@neerajsingh.me",
+			to: "recipient@example.com\r\nBcc: attacker@example.com",
+			subject: "Hello\r\nBcc: attacker@example.com",
+			headers: { "X-Test": "safe\r\nBcc: attacker@example.com" },
+			text: "Hello",
+		});
+		expect(sendMock.mock.calls[0][0]).toMatchObject({
+			from: { name: "Agent Bcc: attacker@example.com" },
+			to: "recipient@example.com Bcc: attacker@example.com",
+			subject: "Hello Bcc: attacker@example.com",
+			headers: { "X-Test": "safe Bcc: attacker@example.com" },
+		});
+	});
+
 	it("applies the configured display name when callers pass only the mailbox address", async () => {
 		await sendEmail(smtpEnv, {
 			from: "mail@neerajsingh.me",

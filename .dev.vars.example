@@ -1,15 +1,17 @@
-# Clerk server-side verification. Copy the PEM JWT public key from Clerk Dashboard -> API keys -> Show JWT public key.
-CLERK_JWT_KEY="-----BEGIN PUBLIC KEY-----\nreplace-with-your-clerk-jwt-public-key\n-----END PUBLIC KEY-----"
+# Clerk server-side verification. Replace every placeholder with your own values.
+CLERK_JWT_KEY="-----BEGIN PUBLIC KEY-----\nREPLACE_WITH_YOUR_CLERK_JWT_PUBLIC_KEY\n-----END PUBLIC KEY-----"
 CLERK_ALLOWED_EMAIL=admin@example.com
-CLERK_PUBLISHABLE_KEY=pk_test_replace_with_your_clerk_publishable_keyn PostgreSQL connection string (pooled or direct serverless connection)
-DATABASE_URL=postgresql://user:password@ep-sample-123456.us-east-2.aws.neon.tech/neondb?sslmode=require
+CLERK_PUBLISHABLE_KEY=pk_test_replace_with_your_clerk_publishable_key
+
+# Neon PostgreSQL connection string (pooled or direct serverless connection)
+DATABASE_URL=postgresql://user:password@ep-example-pooler.region.aws.neon.tech/neondb?sslmode=require
 
 # Zoho SMTP (use the server shown for your Zoho data centre; India DC uses smtp.zoho.in)
 ZOHO_SMTP_HOST=smtp.zoho.in
 ZOHO_SMTP_PORT=587
 ZOHO_SMTP_USERNAME=mail@example.com
 ZOHO_SMTP_FROM_NAME=Agentic Inbox
-ZOHO_SMTP_PASSWORD=your-zoho-app-password
+ZOHO_SMTP_PASSWORD=replace_with_zoho_app_password
 
 # Generate a random 32-byte key and base64-encode it; set the same value with Wrangler secret.
-LLM_ENCRYPTION_KEY=replace-with-base64-encoded-32-byte-key
+LLM_ENCRYPTION_KEY=replace_with_base64_encoded_32_byte_key
