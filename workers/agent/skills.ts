@@ -26,6 +26,9 @@ export function upsertAgentSkill(
     instructions,
     enabled: true,
     mode: "on-demand",
+    ...(existing?.resources ? { resources: existing.resources } : {}),
+    ...(existing?.manifest ? { manifest: existing.manifest } : {}),
+    ...(existing?.source ? { source: existing.source } : {}),
   };
 
   if (existingIndex < 0) {

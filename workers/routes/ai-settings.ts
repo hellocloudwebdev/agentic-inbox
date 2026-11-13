@@ -28,9 +28,21 @@ const configSchema=z.object({
  }).optional(),
  fallbackToWorkersAi:z.boolean().default(true),
 });
+const skillResourceSchema = z.object({
+ path: z.string().min(1).max(512).refine((path) => {
+  const normalized = path.replace(/\\/g, "/");
+  return !normalized.startsWith("/") && !/^[a-zA-Z]:/.test(normalized) &&
+   normalized.split("/").every((part) => !!part && part !== "." && part !== "..");
+ }, "Skill resource path must be a safe relative path"),
+ content: z.string().max(1_000_000),
+ mediaType: z.string().max(120).optional(),
+});
 const skillSchema=z.object({
- id:z.string().min(1),name:z.string().min(1).max(100),description:z.string().min(1).max(500),
- instructions:z.string().min(1).max(12000),enabled:z.boolean(),mode:z.enum(["always","on-demand"]),
+ id:z.string().min(1),name:z.string().min(1).max(100),description:z.string().min(1).max(2000),
+ instructions:z.string().min(1).max(50000),enabled:z.boolean(),mode:z.enum(["always","on-demand"]),
+ resources:z.array(skillResourceSchema).max(150).optional(),
+ manifest:z.record(z.string(),z.unknown()).optional(),
+ source:z.string().max(512).optional(),
 });
 async function repository(env:Env) {
  await ensureNeonSchema(env);
@@ -99,6 +111,11 @@ app.post("/test",async c=>{
 });
 app.put("/skills",async c=>{
  const skills=z.array(skillSchema).max(100).parse(await c.req.json());
+ const encoder = new TextEncoder();
+ const totalBytes = skills.reduce((total, skill) =>
+  total + encoder.encode(skill.instructions).byteLength +
+  (skill.resources ?? []).reduce((sum, resource) => sum + encoder.encode(resource.content).byteLength, 0), 0);
+ if (totalBytes > 8_000_000) return c.json({ error: "The complete skill library exceeds the 8 MB storage limit. Import fewer skills or remove unused supporting files." }, 413);
  const repo=await repository(c.env);
  await repo.setSetting("agent.skills",skills);
  return c.json({skills});

@@ -12,7 +12,15 @@ export interface LlmConfig {
   fallbacks?: Partial<Record<LlmRole, RoleTarget[]>>;
   fallbackToWorkersAi: boolean;
 }
+export interface AgentSkillResource {
+  path: string;
+  content: string;
+  mediaType?: string;
+}
 export interface AgentSkill {
   id: string; name: string; description: string; instructions: string;
   enabled: boolean; mode: "always" | "on-demand";
+  resources?: AgentSkillResource[];
+  manifest?: Record<string, unknown>;
+  source?: string;
 }

@@ -94,7 +94,11 @@ interface EmailListResponse {
 
 export interface LlmProviderSettings { id:string; name:string; kind:"openai-compatible"|"openai-responses"|"openai-chat-completions"|"anthropic"; baseUrl:string; models:string[]; hasKey:boolean; apiKey?:string }
 export interface LlmRoleTarget { providerId:string; model:string }
-export interface AgentSkillSettings { id:string; name:string; description:string; instructions:string; enabled:boolean; mode:"always"|"on-demand" }
+export interface AgentSkillResource { path:string; content:string; mediaType?:string }
+export interface AgentSkillSettings {
+ id:string; name:string; description:string; instructions:string; enabled:boolean; mode:"always"|"on-demand";
+ resources?:AgentSkillResource[]; manifest?:Record<string,unknown>; source?:string;
+}
 export interface AiSettings {
  config:{providers:LlmProviderSettings[];routing:{chat:LlmRoleTarget;draft:LlmRoleTarget;verifier:LlmRoleTarget;scanner:LlmRoleTarget};fallbacks?:Partial<Record<"chat"|"draft"|"verifier"|"scanner",LlmRoleTarget[]>>;fallbackToWorkersAi:boolean};
  skills:AgentSkillSettings[];

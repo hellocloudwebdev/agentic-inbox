@@ -11,8 +11,10 @@ import type {
   AiSettings,
   LlmProviderSettings,
   AgentSkillSettings,
+  AgentSkillResource,
   LlmRoleTarget,
 } from "~/services/api";
+import { importAgentSkillsZip, parseAgentSkillMarkdown } from "~/lib/agent-skills";
 
 const emptyConfig: AiSettings["config"] = {
   providers: [],
@@ -37,18 +39,6 @@ const presets = [
 ];
 
 const roles = ["chat", "draft", "verifier", "scanner"] as const;
-
-function filenameToSkillName(filename: string) {
-  return filename
-    .replace(/\.[^.]+$/, "")
-    .replace(/[-_]+/g, " ")
-    .replace(/\b\w/g, (letter) => letter.toUpperCase());
-}
-
-function readFrontmatterValue(frontmatter: string, key: string): string | undefined {
-  const match = frontmatter.match(new RegExp(`^${key}:\\s*(?:"([^"]*)"|'([^']*)'|(.*))$`, "im"));
-  return match?.[1] ?? match?.[2] ?? match?.[3]?.trim() ?? undefined;
-}
 
 export interface AiConfigurationSaveResult {
   saved: string[];
@@ -78,6 +68,9 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
   const [skillName, setSkillName] = useState("");
   const [skillDescription, setSkillDescription] = useState("");
   const [skillInstructions, setSkillInstructions] = useState("");
+  const [skillResources, setSkillResources] = useState<AgentSkillResource[]>([]);
+  const [skillManifest, setSkillManifest] = useState<Record<string, unknown> | undefined>();
+  const [skillSource, setSkillSource] = useState<string | undefined>();
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const skillFileInput = useRef<HTMLInputElement>(null);
 
@@ -236,6 +229,9 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
     setSkillName("");
     setSkillDescription("");
     setSkillInstructions("");
+    setSkillResources([]);
+    setSkillManifest(undefined);
+    setSkillSource(undefined);
     setEditingSkillId(null);
   };
 
@@ -250,6 +246,9 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
       description: skillDescription.trim(),
       instructions: skillInstructions.trim(),
       mode: "on-demand" as const,
+      resources: skillResources,
+      ...(skillManifest ? { manifest: skillManifest } : {}),
+      ...(skillSource ? { source: skillSource } : {}),
     };
 
     setSkills((old) => {
@@ -266,35 +265,46 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
 
   const handleSkillUpload = async (file?: File) => {
     if (!file) return;
-    if (!/\.(md|txt)$/i.test(file.name)) {
-      toast.add({ title: "Upload a Markdown or text skill file (.md or .txt)", variant: "error" });
+    const isZip = file.name.toLowerCase().endsWith(".zip");
+    if (!isZip && !/\.(md|mdx|txt)$/i.test(file.name)) {
+      toast.add({ title: "Choose a ZIP bundle or a SKILL.md / Markdown file.", variant: "error" });
       return;
     }
 
     try {
-      const raw = await file.text();
-      const frontmatterMatch = raw.match(/^---\s*\r?\n([\s\S]*?)\r?\n---\s*\r?\n?/);
-      const frontmatter = frontmatterMatch?.[1] ?? "";
-      const instructions = (frontmatterMatch ? raw.slice(frontmatterMatch[0].length) : raw).trim();
-      if (!instructions) {
-        toast.add({ title: "The uploaded skill file is empty", variant: "error" });
-        return;
-      }
-      if (instructions.length > 12000) {
-        toast.add({ title: "Skill instructions must be 12,000 characters or fewer", variant: "error" });
+      if (isZip) {
+        const imported = importAgentSkillsZip(new Uint8Array(await file.arrayBuffer()), file.name);
+        setSkills((old) => {
+          const next = [...old];
+          for (const skill of imported.skills) {
+            const existingIndex = next.findIndex((item) => item.name.toLowerCase() === skill.name.toLowerCase());
+            if (existingIndex >= 0) {
+              const existing = next[existingIndex];
+              next[existingIndex] = { ...skill, id: existing.id, enabled: existing.enabled, mode: existing.mode };
+            } else {
+              next.push(skill);
+            }
+          }
+          return next;
+        });
+        toast.add({
+          title: "Imported " + imported.skills.length + " skill(s)",
+          description: [...imported.warnings, "Review the imported skills and use Save all changes."].join(" "),
+        });
         return;
       }
 
-      setSkillName(readFrontmatterValue(frontmatter, "name") || filenameToSkillName(file.name));
-      setSkillDescription(
-        readFrontmatterValue(frontmatter, "description") ||
-        `Imported from ${file.name}`.slice(0, 500),
-      );
-      setSkillInstructions(instructions);
+      const imported = parseAgentSkillMarkdown(await file.text(), file.name, file.name);
+      setSkillName(imported.name);
+      setSkillDescription(imported.description);
+      setSkillInstructions(imported.instructions);
+      setSkillResources(imported.resources ?? []);
+      setSkillManifest(imported.manifest);
+      setSkillSource(imported.source);
       setEditingSkillId(null);
-      toast.add({ title: "Skill file loaded", description: "Review the details, then add the skill." });
+      toast.add({ title: "Skill file loaded", description: "Review the skill details, then add it." });
     } catch (error) {
-      toast.add({ title: "Could not read skill file", description: (error as Error).message, variant: "error" });
+      toast.add({ title: "Could not import skill", description: error instanceof Error ? error.message : String(error), variant: "error" });
     } finally {
       if (skillFileInput.current) skillFileInput.current.value = "";
     }
@@ -424,6 +434,7 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
               <div className="min-w-0">
                 <div className="text-sm font-medium">{skill.name}</div>
                 <div className="text-xs text-slate-600">{skill.description}</div>
+              {(skill.resources?.length ?? 0) > 0 && <div className="mt-1 text-[10px] text-slate-500">{skill.resources?.length} supporting text file(s) · read on demand</div>}
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-xs">
@@ -468,6 +479,9 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
                 setSkillName(skill.name);
                 setSkillDescription(skill.description);
                 setSkillInstructions(skill.instructions);
+                setSkillResources(skill.resources ?? []);
+                setSkillManifest(skill.manifest);
+                setSkillSource(skill.source);
               }}>Edit</Button>
               <Button size="xs" variant="ghost" onClick={() => setSkills((old) => old.filter((item) => item.id !== skill.id))}>Remove</Button>
             </div>
@@ -481,18 +495,18 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
           <input
             ref={skillFileInput}
             type="file"
-            accept=".md,.txt,text/markdown,text/plain"
+            accept=".zip,.md,.mdx,.txt,application/zip,text/markdown,text/plain"
             className="hidden"
             onChange={(event) => void handleSkillUpload(event.target.files?.[0])}
           />
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <Button variant="secondary" onClick={() => skillFileInput.current?.click()}>Upload skill (.md / .txt)</Button>
+            <Button variant="secondary" onClick={() => skillFileInput.current?.click()}>Import skill (.zip / SKILL.md)</Button>
             <div className="flex gap-2">
               {editingSkillId && <Button variant="ghost" onClick={resetSkillForm}>Cancel</Button>}
               <Button variant="secondary" onClick={addSkill}>{editingSkillId ? "Update skill" : "Add skill"}</Button>
             </div>
           </div>
-          <p className="text-[11px] text-slate-600">Markdown files may include optional YAML frontmatter with name and description. Skill instructions are limited to 12,000 characters.</p>
+          <p className="text-[11px] text-slate-600">Import ZIP bundles containing one or more SKILL.md folders, or standalone Markdown files. YAML frontmatter and nested text resources are preserved. Instructions: up to 50,000 characters per skill; 8 MB total skill library. Scripts are stored as text references and never executed.</p>
         </div>
       </div>
 
