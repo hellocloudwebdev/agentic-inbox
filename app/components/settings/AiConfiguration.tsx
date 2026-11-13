@@ -190,11 +190,11 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
     const selectedProvider = config.providers.find((provider) => provider.id === value.providerId);
     return (
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <label className="min-w-0 text-[11px] text-kumo-subtle">
+        <label className="min-w-0 text-[11px] text-slate-600">
           Provider
           <select
             aria-label="Provider"
-            className="mt-1 w-full min-w-0 rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm text-kumo-default"
+            className="mt-1 w-full min-w-0 rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-900"
             value={value.providerId || "__workers_ai__"}
             onChange={(event) => {
               const providerId = event.target.value === "__workers_ai__" ? "" : event.target.value;
@@ -207,11 +207,11 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
             ))}
           </select>
         </label>
-        <label className="min-w-0 text-[11px] text-kumo-subtle">
+        <label className="min-w-0 text-[11px] text-slate-600">
           Model
           <select
             aria-label="Model"
-            className="mt-1 w-full min-w-0 rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm text-kumo-default disabled:cursor-not-allowed disabled:opacity-70"
+            className="mt-1 w-full min-w-0 rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-70"
             value={value.model}
             disabled={!selectedProvider}
             onChange={(event) => onChange({ ...value, model: event.target.value })}
@@ -302,47 +302,49 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
 
   return (
     <section className="space-y-5">
-      <div className="rounded-xl border border-kumo-line bg-kumo-base p-5 space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <div>
-          <h2 className="text-sm font-semibold text-kumo-default">AI Providers</h2>
-          <p className="mt-1 text-xs text-kumo-subtle">Connect model providers and configure one shared assistant model with two ordered fallbacks.</p>
+          <h2 className="text-sm font-semibold text-slate-900">AI Providers</h2>
+          {query.isLoading && <p role="status" className="mt-2 text-sm text-slate-600">Loading AI settings…</p>}
+          {query.isError && <div role="alert" className="mt-2 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">Could not load AI settings: {query.error instanceof Error ? query.error.message : "Unknown error"}. Provider and skill settings may be unavailable until this is fixed.</div>}
+          <p className="mt-1 text-xs text-slate-600">Connect model providers and configure one shared assistant model with two ordered fallbacks.</p>
         </div>
         <div className="rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900">
           Privacy notice: email content and prompts are sent to the selected third-party AI provider when that provider handles a task. Review its data-retention and privacy policies before connecting it.
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="text-xs text-kumo-subtle">
+          <label className="text-xs text-slate-600">
             Provider preset
-            <select className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" onChange={(event) => applyPreset(event.target.value)}>
+            <select className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-900 placeholder:text-slate-400" onChange={(event) => applyPreset(event.target.value)}>
               {presets.map((preset) => <option key={preset.name}>{preset.name}</option>)}
             </select>
           </label>
-          <label className="text-xs text-kumo-subtle">
+          <label className="text-xs text-slate-600">
             Provider name
-            <input className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={providerName} onChange={(event) => setProviderName(event.target.value)} />
+            <input className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-900 placeholder:text-slate-400" value={providerName} onChange={(event) => setProviderName(event.target.value)} />
           </label>
-          <label className="text-xs text-kumo-subtle">
+          <label className="text-xs text-slate-600">
             API type
-            <select className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}>
+            <select className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-900 placeholder:text-slate-400" value={kind} onChange={(event) => setKind(event.target.value as typeof kind)}>
               <option value="openai-compatible">OpenAI-compatible</option>
               <option value="openai-responses">OpenAI Responses API</option>
               <option value="openai-chat-completions">OpenAI Chat Completions</option>
               <option value="anthropic">Anthropic Messages API</option>
             </select>
           </label>
-          <label className="text-xs text-kumo-subtle">
+          <label className="text-xs text-slate-600">
             Base URL
-            <input className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
+            <input className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-900 placeholder:text-slate-400" value={baseUrl} onChange={(event) => setBaseUrl(event.target.value)} />
           </label>
-          <label className="text-xs text-kumo-subtle sm:col-span-2">
+          <label className="text-xs text-slate-600 sm:col-span-2">
             API key
-            <input type="password" autoComplete="new-password" className="mt-1 w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={editingProviderId ? "Leave blank to keep the saved key" : "Paste provider API key"} />
-            <p className="text-xs text-kumo-subtle sm:col-span-2">Provider URL and encrypted API key are saved in your app's Neon settings. They are not stored as Cloudflare Worker variables.</p>
+            <input type="password" autoComplete="new-password" className="mt-1 w-full rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-900 placeholder:text-slate-400" value={apiKey} onChange={(event) => setApiKey(event.target.value)} placeholder={editingProviderId ? "Leave blank to keep the saved key" : "Paste provider API key"} />
+            <p className="text-xs text-slate-600 sm:col-span-2">Provider URL and encrypted API key are saved in your app's Neon settings. They are not stored as Cloudflare Worker variables.</p>
           </label>
         </div>
         <div className="flex flex-wrap gap-2">
           <Button onClick={fetch} loading={fetchModels.isPending} disabled={!apiKey.trim()}>Fetch models</Button>
-          <select aria-label="Available model" className="min-w-0 flex-1 rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
+          <select aria-label="Available model" className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white p-2 text-sm" value={selectedModel} onChange={(event) => setSelectedModel(event.target.value)}>
             <option value="">Select fetched model</option>
             {models.map((model) => <option key={model}>{model}</option>)}
           </select>
@@ -350,10 +352,10 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
         </div>
         <div className="space-y-2">
           {config.providers.map((provider) => (
-            <div key={provider.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-kumo-line p-3">
+            <div key={provider.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-200 p-3">
               <div>
                 <div className="text-sm font-medium">{provider.name}</div>
-                <div className="text-xs text-kumo-subtle">{provider.models.length} models · {provider.hasKey ? "API key saved" : "API key missing"} · {provider.baseUrl}</div>
+                <div className="text-xs text-slate-600">{provider.models.length} models · {provider.hasKey ? "API key saved" : "API key missing"} · {provider.baseUrl}</div>
               </div>
               <div className="flex gap-2">
                 <Button size="sm" variant="ghost" onClick={() => {
@@ -385,24 +387,24 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
             </div>
           ))}
         </div>
-        <div className="space-y-3 border-t border-kumo-line pt-4">
+        <div className="space-y-3 border-t border-slate-200 pt-4">
           <div>
             <div className="text-sm font-medium">One AI assistant</div>
-            <p className="mt-1 text-xs text-kumo-subtle">The same assistant handles reading and searching emails, writing and sending emails, replies, drafts, folders, and skills. One model route applies consistently to every task.</p>
+            <p className="mt-1 text-xs text-slate-600">The same assistant handles reading and searching emails, writing and sending emails, replies, drafts, folders, and skills. One model route applies consistently to every task.</p>
           </div>
-          <div className="space-y-2 rounded-lg border border-kumo-line p-3">
+          <div className="space-y-2 rounded-lg border border-slate-200 p-3">
             <div className="text-sm font-medium">AI Assistant</div>
             <div className="space-y-1">
-              <div className="text-xs text-kumo-subtle">Primary model</div>
+              <div className="text-xs text-slate-600">Primary model</div>
               {providerAndModelSelectors(config.routing.chat, route)}
             </div>
             {[0, 1].map((index) => (
               <div key={index} className="space-y-1">
-                <div className="text-xs text-kumo-subtle">Fallback {index + 1}</div>
+                <div className="text-xs text-slate-600">Fallback {index + 1}</div>
                 {providerAndModelSelectors(config.fallbacks?.chat?.[index] ?? { providerId: "", model: "" }, (value) => routeFallback(index, value))}
               </div>
             ))}
-            <p className="text-[11px] text-kumo-subtle">Fallbacks run in order. Each fallback can use a different provider and model. This shared configuration is used for every assistant task.</p>
+            <p className="text-[11px] text-slate-600">Fallbacks run in order. Each fallback can use a different provider and model. This shared configuration is used for every assistant task.</p>
           </div>
         </div>
         <label className="flex items-center gap-2 text-sm">
@@ -412,16 +414,16 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
       </div>
 
       {skills.some((skill) => skill.mode === "always") && (
-        <div className="rounded-xl border border-kumo-line bg-kumo-base p-5 space-y-3">
+        <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-3">
           <div>
-            <h2 className="text-sm font-semibold text-kumo-default">Existing Always-on Skills</h2>
-            <p className="mt-1 text-xs text-kumo-subtle">These older skills remain active on every agent run. New skills belong in the on-demand library below.</p>
+            <h2 className="text-sm font-semibold text-slate-900">Existing Always-on Skills</h2>
+            <p className="mt-1 text-xs text-slate-600">These older skills remain active on every agent run. New skills belong in the on-demand library below.</p>
           </div>
           {skills.filter((skill) => skill.mode === "always").map((skill) => (
-            <div key={skill.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-kumo-line p-3">
+            <div key={skill.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-3">
               <div className="min-w-0">
                 <div className="text-sm font-medium">{skill.name}</div>
-                <div className="text-xs text-kumo-subtle">{skill.description}</div>
+                <div className="text-xs text-slate-600">{skill.description}</div>
               </div>
               <div className="flex items-center gap-2">
                 <label className="text-xs">
@@ -440,22 +442,22 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
         </div>
       )}
 
-      <div className="rounded-xl border border-kumo-line bg-kumo-base p-5 space-y-4">
+      <div className="rounded-xl border border-slate-200 bg-white p-5 space-y-4">
         <div>
           <div className="flex items-center gap-2">
-            <h2 className="text-sm font-semibold text-kumo-default">On-demand Skills</h2>
-            <span className="rounded-full bg-kumo-fill px-2 py-0.5 text-[10px] font-medium text-kumo-subtle">Loaded when relevant</span>
+            <h2 className="text-sm font-semibold text-slate-900">On-demand Skills</h2>
+            <span className="rounded-full bg-kumo-fill px-2 py-0.5 text-[10px] font-medium text-slate-600">Loaded when relevant</span>
           </div>
-          <p className="mt-1 text-xs text-kumo-subtle">
+          <p className="mt-1 text-xs text-slate-600">
             Save reusable workflows and instructions here. The agent loads a skill only when it is relevant. You can type a skill, upload a .md or .txt file, or teach the agent a skill directly in chat.
           </p>
         </div>
 
         {skills.filter((skill) => skill.mode === "on-demand").map((skill) => (
-          <div key={skill.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-kumo-line p-3">
+          <div key={skill.id} className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 p-3">
             <div className="min-w-0">
               <div className="text-sm font-medium">{skill.name}</div>
-              <div className="text-xs text-kumo-subtle">{skill.description}</div>
+              <div className="text-xs text-slate-600">{skill.description}</div>
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs">
@@ -473,9 +475,9 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
         ))}
 
         <div className="grid gap-2">
-          <input className="rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" placeholder="Skill name" value={skillName} onChange={(event) => setSkillName(event.target.value)} />
-          <input className="rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" placeholder="Short description" value={skillDescription} onChange={(event) => setSkillDescription(event.target.value)} />
-          <textarea className="rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm" rows={5} placeholder="Full skill instructions" value={skillInstructions} onChange={(event) => setSkillInstructions(event.target.value)} />
+          <input className="rounded-lg border border-slate-200 bg-white p-2 text-sm" placeholder="Skill name" value={skillName} onChange={(event) => setSkillName(event.target.value)} />
+          <input className="rounded-lg border border-slate-200 bg-white p-2 text-sm" placeholder="Short description" value={skillDescription} onChange={(event) => setSkillDescription(event.target.value)} />
+          <textarea className="rounded-lg border border-slate-200 bg-white p-2 text-sm" rows={5} placeholder="Full skill instructions" value={skillInstructions} onChange={(event) => setSkillInstructions(event.target.value)} />
           <input
             ref={skillFileInput}
             type="file"
@@ -490,7 +492,7 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
               <Button variant="secondary" onClick={addSkill}>{editingSkillId ? "Update skill" : "Add skill"}</Button>
             </div>
           </div>
-          <p className="text-[11px] text-kumo-subtle">Markdown files may include optional YAML frontmatter with name and description. Skill instructions are limited to 12,000 characters.</p>
+          <p className="text-[11px] text-slate-600">Markdown files may include optional YAML frontmatter with name and description. Skill instructions are limited to 12,000 characters.</p>
         </div>
       </div>
 
