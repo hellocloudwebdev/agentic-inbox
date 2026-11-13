@@ -346,7 +346,7 @@ function createEmailTools(env: Env, mailboxId: string, sendPermissions: { allowR
                 path: z.string().min(1).max(512).describe("Safe relative path listed by load_skill"),
             }),
             execute: async ({ name, path }) => {
-                const normalized = path.replace(/\\\\/g, "/");
+                const normalized = path.replace(/\\/g, "/");
                 if (normalized.startsWith("/") || /^[a-zA-Z]:/.test(normalized) ||
                     normalized.split("/").some(part => !part || part === "." || part === "..")) {
                     return { error: "Invalid skill resource path. Use a safe relative path from the skill file list." };

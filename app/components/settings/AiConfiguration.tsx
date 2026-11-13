@@ -445,6 +445,9 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
                   setSkillName(skill.name);
                   setSkillDescription(skill.description);
                   setSkillInstructions(skill.instructions);
+                  setSkillResources(skill.resources ?? []);
+                  setSkillManifest(skill.manifest);
+                  setSkillSource(skill.source);
                 }}>Edit</Button>
                 <Button size="xs" variant="ghost" onClick={() => setSkills((old) => old.filter((item) => item.id !== skill.id))}>Remove</Button>
               </div>
@@ -469,6 +472,7 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
             <div className="min-w-0">
               <div className="text-sm font-medium">{skill.name}</div>
               <div className="text-xs text-slate-600">{skill.description}</div>
+              {(skill.resources?.length ?? 0) > 0 && <div className="mt-1 text-[10px] text-slate-500">{skill.resources?.length} supporting text file(s) · read on demand</div>}
             </div>
             <div className="flex items-center gap-2">
               <label className="text-xs">

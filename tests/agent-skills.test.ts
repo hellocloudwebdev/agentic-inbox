@@ -22,6 +22,28 @@ describe("upsertAgentSkill", () => {
     expect(result.skills).toHaveLength(1);
   });
 
+  it("preserves imported supporting files and manifest when a learned skill updates the same name", () => {
+    const existing: AgentSkill = {
+      id: "imported-id",
+      name: "Email Review",
+      description: "Imported skill",
+      instructions: "Use the reference checklist.",
+      enabled: true,
+      mode: "on-demand",
+      resources: [{ path: "references/checklist.md", content: "Check the sender." }],
+      manifest: { license: "MIT" },
+      source: "bundle.zip",
+    };
+    const result = upsertAgentSkill([existing], {
+      name: "email review",
+      description: "Updated instructions",
+      instructions: "Apply the updated review process.",
+    });
+    expect(result.skill.resources).toEqual(existing.resources);
+    expect(result.skill.manifest).toEqual(existing.manifest);
+    expect(result.skill.source).toBe("bundle.zip");
+  });
+
   it("updates an existing skill by case-insensitive name without creating a duplicate", () => {
     const existing: AgentSkill = {
       id: "existing-id",
