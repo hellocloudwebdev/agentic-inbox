@@ -25,14 +25,19 @@ async function createKey(label: string): Promise<{ token: string; record: McpApi
     createdAt: new Date().toISOString(), lastUsedAt: null, revokedAt: null,
   }};
 }
-function publicKey(record: McpApiKeyRecord) {
+function publicKey(record: McpApiKeyRecord, lastUsedAt: string | null = record.lastUsedAt) {
   return { id: record.id, label: record.label, createdAt: record.createdAt,
-    lastUsedAt: record.lastUsedAt, revokedAt: record.revokedAt,
+    lastUsedAt, revokedAt: record.revokedAt,
     status: record.revokedAt ? "revoked" : "active" };
 }
 app.get("/keys", async (c) => {
-  const records = await readKeys(await getRepository(c.env));
-  return c.json({ keys: records.map(publicKey).sort((a,b)=>b.createdAt.localeCompare(a.createdAt)) });
+  const repository = await getRepository(c.env);
+  const records = await readKeys(repository);
+  const keys = await Promise.all(records.map(async (record) => {
+    const lastUsedAt = await repository.getSetting<string>(`${MCP_API_KEYS_SETTING}.lastUsed:${record.id}`) ?? record.lastUsedAt;
+    return publicKey(record, lastUsedAt);
+  }));
+  return c.json({ keys: keys.sort((a,b)=>b.createdAt.localeCompare(a.createdAt)) });
 });
 app.post("/keys", async (c) => {
   const body = z.object({ label: z.string().trim().min(1).max(80).default("MCP client") }).parse(await c.req.json().catch(()=>({})));

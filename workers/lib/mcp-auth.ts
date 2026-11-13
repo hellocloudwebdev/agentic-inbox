@@ -27,9 +27,9 @@ export async function authenticateMcpApiKey(request: Request, env: Env): Promise
     const matching = records.find((record) => !record.revokedAt && constantTimeEqual(record.tokenHash, tokenHash));
     if (!matching) return false;
     const now = new Date().toISOString();
-    await repository.setSetting(MCP_API_KEYS_SETTING, records.map((record) =>
-      record.id === matching.id ? { ...record, lastUsedAt: now } : record
-    ));
+    // Keep activity in a separate setting so a concurrent last-used update
+    // cannot overwrite a simultaneous key revocation in the key-history record.
+    await repository.setSetting(`${MCP_API_KEYS_SETTING}.lastUsed:${matching.id}`, now);
     return true;
   } catch (error) {
     console.error("MCP API-key authentication failed closed:", error instanceof Error ? error.message : String(error));
