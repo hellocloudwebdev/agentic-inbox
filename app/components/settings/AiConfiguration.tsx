@@ -392,15 +392,15 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
           </div>
           <div className="space-y-2 rounded-lg border border-kumo-line p-3">
             <div className="text-sm font-medium">AI Assistant</div>
-            <label className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
-              <span>Primary model</span>
+            <div className="space-y-1">
+              <div className="text-xs text-kumo-subtle">Primary model</div>
               {providerAndModelSelectors(config.routing.chat, route)}
-            </label>
+            </div>
             {[0, 1].map((index) => (
-              <label key={index} className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
-                <span>Fallback {index + 1}</span>
+              <div key={index} className="space-y-1">
+                <div className="text-xs text-kumo-subtle">Fallback {index + 1}</div>
                 {providerAndModelSelectors(config.fallbacks?.chat?.[index] ?? { providerId: "", model: "" }, (value) => routeFallback(index, value))}
-              </label>
+              </div>
             ))}
             <p className="text-[11px] text-kumo-subtle">Fallbacks run in order. Each fallback can use a different provider and model. This shared configuration is used for every assistant task.</p>
           </div>
