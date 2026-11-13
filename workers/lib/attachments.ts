@@ -61,8 +61,14 @@ export function sanitizeFilename(filename?: string | null): string {
  * Convert any attachment content format into a Uint8Array.
  */
 export function toUint8Array(content: Uint8Array | ArrayBuffer | string, isBase64 = false): Uint8Array {
-	if (content instanceof Uint8Array) {\n\t\tif (content.byteLength > MAX_ATTACHMENT_BYTES) throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);\n\t\treturn content;\n\t}
-	if (content instanceof ArrayBuffer) {\n\t\tif (content.byteLength > MAX_ATTACHMENT_BYTES) throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);\n\t\treturn new Uint8Array(content);\n\t}
+	if (content instanceof Uint8Array) {
+		if (content.byteLength > MAX_ATTACHMENT_BYTES) throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);
+		return content;
+	}
+	if (content instanceof ArrayBuffer) {
+		if (content.byteLength > MAX_ATTACHMENT_BYTES) throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);
+		return new Uint8Array(content);
+	}
 	if (typeof content === "string") {
 		if (isBase64) {
 			const normalized = content
@@ -80,16 +86,17 @@ export function toUint8Array(content: Uint8Array | ArrayBuffer | string, isBase6
 				throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);
 			}
 			const bytes = new Uint8Array(len);
-			for (let i = 0; i < len; i++) {
-				bytes[i] = binaryStr.charCodeAt(i);
-			}
+			for (let i = 0; i < len; i++) bytes[i] = binaryStr.charCodeAt(i);
 			return bytes;
 		}
-		return new TextEncoder().encode(content);
+		const encoded = new TextEncoder().encode(content);
+		if (encoded.byteLength > MAX_ATTACHMENT_BYTES) {
+			throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);
+		}
+		return encoded;
 	}
 	throw new Error("Unsupported attachment content format");
 }
-
 /**
  * Split a binary byte array into 1 MiB chunks.
  * For zero-byte files, returns an empty array.
