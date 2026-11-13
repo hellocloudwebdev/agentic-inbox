@@ -108,7 +108,9 @@ export class MailboxDO extends DurableObject<Env> {
 	constructor(state: DurableObjectState, env: Env) {
 		super(state, env);
 		this.db = drizzle(this.ctx.storage, { schema });
-		applyMigrations(this.ctx.storage.sql, mailboxMigrations, this.ctx.storage);
+		this.ctx.blockConcurrencyWhile(async () => {
+			applyMigrations(this.ctx.storage.sql, mailboxMigrations, this.ctx.storage);
+		});
 	}
 
 	// ── Email CRUD (Drizzle) ───────────────────────────────────────

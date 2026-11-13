@@ -9,7 +9,7 @@
  * through @workermailer/smtp. Credentials are supplied only by Worker secrets.
  */
 
-import { WorkerMailer } from "@workermailer/smtp";
+import { WorkerMailer } from "@workermailer/smtp";\n\nexport function stripCrlf(value: string): string {\n\treturn value.replace(/[\\r\\n]+/g, " ").trim();\n}
 
 export interface ZohoSmtpEnv {
 	ZOHO_SMTP_HOST?: string;
@@ -61,7 +61,7 @@ export async function sendEmail(
 	}
 
 	const fromEmail = (typeof params.from === "string" ? params.from : params.from.email).trim().toLowerCase();
-	const fromName = env.ZOHO_SMTP_FROM_NAME?.trim() || "Neeraj Singh";
+	const fromName = stripCrlf(env.ZOHO_SMTP_FROM_NAME || "Agentic Inbox");\n\tconst safeSubject = stripCrlf(params.subject);
 	if (fromEmail !== username.toLowerCase()) {
 		throw new Error(
 			"Zoho SMTP authenticates as " + username +
@@ -88,16 +88,16 @@ export async function sendEmail(
 			subject: params.subject,
 			...(params.html ? { html: params.html } : {}),
 			...(params.text ? { text: params.text } : {}),
-			...(params.cc ? { cc: params.cc } : {}),
-			...(params.bcc ? { bcc: params.bcc } : {}),
-			...(params.replyTo ? { reply: params.replyTo } : {}),
+			...(params.cc ? { cc: Array.isArray(params.cc) ? params.cc.map(stripCrlf) : stripCrlf(params.cc) } : {}),
+			...(params.bcc ? { bcc: Array.isArray(params.bcc) ? params.bcc.map(stripCrlf) : stripCrlf(params.bcc) } : {}),
+			...(params.replyTo ? { reply: typeof params.replyTo === "string" ? stripCrlf(params.replyTo) : { email: stripCrlf(params.replyTo.email), name: stripCrlf(params.replyTo.name) } } : {}),
 			...(params.headers && Object.keys(params.headers).length > 0
 				? { headers: params.headers }
 				: {}),
 			...(params.attachments && params.attachments.length > 0
 				? {
 					attachments: params.attachments.map((attachment) => ({
-						filename: attachment.filename,
+						filename: stripCrlf(attachment.filename),
 						content: attachment.content,
 						mimeType: attachment.type,
 						inline: attachment.disposition === "inline",

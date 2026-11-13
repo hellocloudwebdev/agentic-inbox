@@ -10,7 +10,7 @@
  */
 import type { MailboxDO, AttachmentData } from "../durableObject";
 
-export const CHUNK_SIZE = 1024 * 1024; // 1 MiB (1,048,576 bytes)
+export const CHUNK_SIZE = 1024 * 1024; // 1 MiB (1,048,576 bytes)\nexport const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15 MiB per attachment
 
 export interface AttachmentInput {
 	content: Uint8Array | ArrayBuffer | string;
@@ -64,8 +64,20 @@ export function toUint8Array(content: Uint8Array | ArrayBuffer | string, isBase6
 	if (content instanceof ArrayBuffer) return new Uint8Array(content);
 	if (typeof content === "string") {
 		if (isBase64) {
-			const binaryStr = atob(content);
+			const normalized = content
+				.replace(/^data:[^,]*;base64,/i, "")
+				.replace(/[\\r\\n\\t ]+/g, "");
+			if (!/^[A-Za-z0-9+/]*={0,2}$/.test(normalized) || normalized.length % 4 === 1) {
+				throw new TypeError("Attachment contains invalid base64 data");
+			}
+			if (normalized.length > Math.ceil(MAX_ATTACHMENT_BYTES / 3) * 4) {
+				throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);
+			}
+			const binaryStr = atob(normalized);
 			const len = binaryStr.length;
+			if (len > MAX_ATTACHMENT_BYTES) {
+				throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);
+			}
 			const bytes = new Uint8Array(len);
 			for (let i = 0; i < len; i++) {
 				bytes[i] = binaryStr.charCodeAt(i);

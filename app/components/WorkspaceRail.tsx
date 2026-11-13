@@ -16,6 +16,12 @@ import { NavLink, useLocation, useNavigate, useParams } from "react-router";
 import { useUIStore } from "~/hooks/useUIStore";
 import { useMailbox, useMailboxes } from "~/queries/mailboxes";
 
+export function formatMailboxHandle(value?: string | null, fallback = "workspace"): string {
+  if (typeof value !== "string" || !value.trim()) return fallback;
+  const trimmed = value.trim();
+  return trimmed.split("@")[0] || trimmed || fallback;
+}
+
 export default function WorkspaceRail() {
   const { mailboxId } = useParams<{ mailboxId: string }>();
   const location = useLocation();
@@ -28,7 +34,7 @@ export default function WorkspaceRail() {
   const displayName =
     mailbox?.settings?.fromName ||
     mailbox?.name ||
-    mailboxId?.split("@")[0] ||
+    formatMailboxHandle(mailboxId, "Mailbox") ||
     "Mailbox";
 
   const accounts = useMemo(() => {
@@ -38,7 +44,7 @@ export default function WorkspaceRail() {
       byId.set(mailboxId, {
         id: mailboxId,
         email: mailboxId,
-        name: mailboxId.split("@")[0] || "Mailbox",
+        name: formatMailboxHandle(mailboxId, "Mailbox"),
       });
     }
     return [...byId.values()];
@@ -107,7 +113,7 @@ export default function WorkspaceRail() {
                 const name =
                   account.settings?.fromName ||
                   account.name ||
-                  account.email.split("@")[0];
+                  formatMailboxHandle(account?.email, "Mailbox");
                 return (
                   <button
                     key={account.id}
@@ -121,7 +127,7 @@ export default function WorkspaceRail() {
                     }`}
                   >
                     <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#e7edf8] text-sm font-semibold text-[#456184]">
-                      {name.trim().charAt(0).toUpperCase()}
+                      {(name?.trim().charAt(0) || "?").toUpperCase()}
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[13px] font-semibold">
@@ -213,7 +219,7 @@ export default function WorkspaceRail() {
           aria-label={displayName}
           className="mt-1 flex h-9 w-9 items-center justify-center rounded-full border border-white bg-[#dce8f7] text-xs font-semibold text-[#37516d] shadow-sm"
         >
-          {displayName.trim().charAt(0).toUpperCase()}
+          {(displayName?.trim().charAt(0) || "?").toUpperCase()}
         </div>
       </div>
     </aside>
