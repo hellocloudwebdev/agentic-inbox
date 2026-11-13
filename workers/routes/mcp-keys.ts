@@ -19,7 +19,7 @@ function encodeBase64Url(bytes: Uint8Array): string {
 }
 async function createKey(label: string): Promise<{ token: string; record: McpApiKeyRecord }> {
   const random = crypto.getRandomValues(new Uint8Array(32));
-  const token = \`aib_live_\${encodeBase64Url(random)}\`;
+  const token = `aib_live_${encodeBase64Url(random)}`;
   return { token, record: {
     id: crypto.randomUUID(), label, tokenHash: await hashMcpApiKey(token),
     createdAt: new Date().toISOString(), lastUsedAt: null, revokedAt: null,
