@@ -5,6 +5,7 @@
 import { routeAgentRequest } from "agents";
 import { Hono } from "hono";
 import { authenticateClerkRequest } from "./lib/clerk-auth";
+import { authenticateMcpApiKey } from "./lib/mcp-auth";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
 import { EmailMCP } from "./mcp";
@@ -43,6 +44,9 @@ app.use("*", async (c, next) => {
 		pathname === "/manifest.webmanifest";
 
 	if (isPublicSignIn || isPublicAsset) return next();
+
+	const isMcpPath = pathname === "/mcp" || pathname.startsWith("/mcp/");
+	if (isMcpPath && await authenticateMcpApiKey(c.req.raw, c.env)) return next();
 
 	if (!c.env.CLERK_JWT_KEY || !c.env.CLERK_ALLOWED_EMAIL) {
 		return c.text("Clerk authentication is not configured. Set CLERK_JWT_KEY and CLERK_ALLOWED_EMAIL.", 503);

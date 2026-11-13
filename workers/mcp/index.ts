@@ -24,6 +24,7 @@ import { Folders, FOLDER_TOOL_DESCRIPTION, MOVE_FOLDER_TOOL_DESCRIPTION } from "
 import type { Env } from "../types";
 import { getNeonDb, ensureNeonSchema } from "../db/neon-client";
 import { MailboxRepository, normalizeMailboxId } from "../db/repositories/mailbox-repository";
+import { getEmailAutomationSettings } from "../lib/email-automation";
 
 /** Wrap a plain result object into MCP content format. */
 function mcpText(result: unknown) {
@@ -76,6 +77,18 @@ export class EmailMCP extends McpAgent<Env> {
 			 * Verify a mailbox exists in Neon before operating on it.
 			 * Returns an MCP error response if the mailbox is not found, or null if valid.
 			 */
+			const canMcpSend = async (mailboxId: string) => {
+				try {
+					await ensureNeonSchema(env);
+					const repo = new MailboxRepository(getNeonDb(env));
+					const box = await repo.getMailbox(normalizeMailboxId(mailboxId));
+					return getEmailAutomationSettings(box?.settings).allowMcpSend;
+				} catch (error) {
+					console.error("Could not load MCP send permissions:", error instanceof Error ? error.message : String(error));
+					return false;
+				}
+			};
+
 			const verifyMailbox = async (mailboxId: string) => {
 				try {
 					await ensureNeonSchema(env);
@@ -334,6 +347,9 @@ export class EmailMCP extends McpAgent<Env> {
 			async ({ mailboxId, originalEmailId, to, subject, bodyHtml }) => {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
+				if (!(await canMcpSend(mailboxId))) {
+					return mcpError("MCP email sending is disabled in Settings. Enable MCP send permission before using send_reply.");
+				}
 				const result = await toolSendReply(env, mailboxId, {
 					originalEmailId,
 					to,
@@ -373,6 +389,9 @@ export class EmailMCP extends McpAgent<Env> {
 			async ({ mailboxId, to, subject, bodyHtml }) => {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
+				if (!(await canMcpSend(mailboxId))) {
+					return mcpError("MCP email sending is disabled in Settings. Enable MCP send permission before using send_email.");
+				}
 				const result = await toolSendEmail(env, mailboxId, {
 					to,
 					subject,
