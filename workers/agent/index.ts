@@ -368,8 +368,8 @@ export class EmailAgent extends AIChatAgent<any> {
 		const mailboxId = mailboxIdFromAgentName(this.name);
 		const automation = await loadEmailAutomationSettings(env, mailboxId);
 		const tools = createEmailTools(env, mailboxId, {
-			allowReplies: automation.allowChatSend,
-			allowNewEmails: automation.allowChatSend,
+			allowReplies: automation.allowChatSendReplies,
+			allowNewEmails: automation.allowChatSendNewEmails,
 			blockedMessage: "Email sending from chat is disabled in Settings. Enable the chat-send permission before asking the agent to send.",
 		});
 		const systemPrompt = await getSystemPrompt(env, mailboxId);
