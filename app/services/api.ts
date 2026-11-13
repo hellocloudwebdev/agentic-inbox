@@ -99,6 +99,20 @@ export interface AiSettings {
  config:{providers:LlmProviderSettings[];routing:{chat:LlmRoleTarget;draft:LlmRoleTarget;verifier:LlmRoleTarget;scanner:LlmRoleTarget};fallbacks?:Partial<Record<"chat"|"draft"|"verifier"|"scanner",LlmRoleTarget[]>>;fallbackToWorkersAi:boolean};
  skills:AgentSkillSettings[];
 }
+export interface AgentConversation {
+	id: string;
+	title: string;
+	createdAt: string;
+	updatedAt: string;
+}
+export interface McpApiKeyMetadata {
+	id: string;
+	label: string;
+	createdAt: string;
+	lastUsedAt: string | null;
+	revokedAt: string | null;
+	status: "active" | "revoked";
+}
 
 // ---------- API client ----------
 
@@ -109,6 +123,21 @@ const api = {
 	fetchProviderModels: (input:{kind:"openai-compatible"|"openai-responses"|"openai-chat-completions"|"anthropic";baseUrl:string;apiKey:string}) => post<{models:string[]}>("/api/v1/ai/models/fetch",input),
 	testAiProvider: (input:{providerId:string;model:string}) => post<{ok:boolean;response?:string;error?:string}>("/api/v1/ai/test",input),
 	saveAgentSkills: (skills:AgentSkillSettings[]) => put<{skills:AgentSkillSettings[]}>("/api/v1/ai/skills",skills),
+
+	// MCP API-key management. The returned secret is shown only at creation/regeneration.
+	listMcpKeys: () => get<{ keys: McpApiKeyMetadata[] }>("/api/v1/mcp/keys"),
+	createMcpKey: (label: string) => post<{ key: string; keyInfo: McpApiKeyMetadata }>("/api/v1/mcp/keys", { label }),
+	regenerateMcpKey: (id: string) => post<{ key: string; keyInfo: McpApiKeyMetadata }>(`/api/v1/mcp/keys/${encodeURIComponent(id)}/regenerate`),
+	revokeMcpKey: (id: string) => del<void>(`/api/v1/mcp/keys/${encodeURIComponent(id)}`),
+
+	// Agent conversations
+	listAgentConversations: (mailboxId: string) => get<{ conversations: AgentConversation[] }>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/agent/conversations`),
+	createAgentConversation: (mailboxId: string, title?: string) => post<AgentConversation>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/agent/conversations`, title ? { title } : {}),
+	renameAgentConversation: (mailboxId: string, id: string, title: string) => put<AgentConversation>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/agent/conversations/${encodeURIComponent(id)}`, { title }),
+	touchAgentConversation: (mailboxId: string, id: string) => post<void>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/agent/conversations/${encodeURIComponent(id)}/touch`),
+	clearAgentConversation: (mailboxId: string, id: string) => post<void>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/agent/conversations/${encodeURIComponent(id)}/clear`),
+	deleteAgentConversation: (mailboxId: string, id: string) => del<void>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/agent/conversations/${encodeURIComponent(id)}`),
+	deleteAllAgentConversations: (mailboxId: string) => del<{ ok: boolean; deleted: number }>(`/api/v1/mailboxes/${encodeURIComponent(mailboxId)}/agent/conversations`),
 
 	// Config
 	getConfig: () =>
