@@ -133,6 +133,9 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
   };
 
   const savePending = async (): Promise<AiConfigurationSaveResult> => {
+    if (query.isLoading || !query.data) {
+      return { saved: [], failed: [{ section: "AI providers and skills", error: "AI settings have not finished loading. Wait for the settings panel to load, then save again." }] };
+    }
     const results = await Promise.allSettled([
       saveConfig.mutateAsync(config),
       saveSkills.mutateAsync(skills),

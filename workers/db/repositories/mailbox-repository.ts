@@ -30,6 +30,11 @@ export const MailboxSettingsSchema = z
 			})
 			.optional(),
 		agentSystemPrompt: z.string().optional(),
+		aiEmail: z.object({
+			autoReplyOnIncoming: z.boolean(),
+			allowChatSend: z.boolean(),
+			allowMcpSend: z.boolean(),
+		}).optional(),
 	})
 	.passthrough();
 
