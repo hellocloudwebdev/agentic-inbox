@@ -66,7 +66,7 @@ export function toUint8Array(content: Uint8Array | ArrayBuffer | string, isBase6
 		if (isBase64) {
 			const normalized = content
 				.replace(/^data:[^,]*;base64,/i, "")
-				.replace(/[\\r\\n\\t ]+/g, "");
+				.replace(/[\r\n\t ]+/g, "");
 			if (!/^[A-Za-z0-9+/]*={0,2}$/.test(normalized) || normalized.length % 4 === 1) {
 				throw new TypeError("Attachment contains invalid base64 data");
 			}

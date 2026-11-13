@@ -34,15 +34,14 @@ export function sanitizeEmailHtml(rawHtml: string): string {
 		ADD_ATTR: ["target"],
 		FORCE_BODY: true,
 	});
-	return clean.replace(/<style\\b[^>]*>([\\s\\S]*?)<\\/style>/gi, (_full, cssContent: string) => {
+	return clean.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (_full, cssContent: string) => {
 		const safeCss = cssContent
-			.replace(/@import\\b[^;]+;?/gi, "")
-			.replace(/url\\(\\s*['"]?\\s*(?:https?:|\\/\\/)[^)]+\\)/gi, "none")
-			.replace(/expression\\s*\\([^)]*\\)/gi, "none");
-		return `<style>${safeCss}</style>`;
+			.replace(/@import\b[^;]+;?/gi, "")
+			.replace(/url\(\s*['"]?\s*(?:https?:|\/\/)[^)]+\)/gi, "none")
+			.replace(/expression\s*\([^)]*\)/gi, "none");
+		return \`<style>\${safeCss}</style>\`;
 	});
 }
-
 export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const [height, setHeight] = useState(autoSize ? 100 : 0);
@@ -60,7 +59,8 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 				typeof event.data.height === "number" &&
 				event.data.height > 0
 			) {
-				const nextHeight = Math.max(120, Math.min(event.data.height, 20_000));\n\t\t\t\tsetHeight((previous) => Math.abs(previous - nextHeight) >= 2 ? nextHeight : previous);
+				const nextHeight = Math.max(120, Math.min(event.data.height, 20_000));
+				setHeight((previous) => Math.abs(previous - nextHeight) >= 2 ? nextHeight : previous);
 			}
 		},
 		[autoSize],
