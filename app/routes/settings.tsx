@@ -58,8 +58,7 @@ export default function SettingsRoute() {
     setAgentPrompt(mailbox.settings?.agentSystemPrompt || "");
     const savedPermissions = (mailbox.settings?.aiEmail ?? {}) as Partial<AiEmailSettings> & { allowChatSend?: boolean; allowMcpSend?: boolean };
     setAiEmail({
-      ...DEFAULT_AI_EMAIL,
-      ...savedPermissions,
+      autoReplyOnIncoming: savedPermissions.autoReplyOnIncoming === true,
       allowChatSendNewEmails: savedPermissions.allowChatSendNewEmails ?? savedPermissions.allowChatSend ?? false,
       allowChatSendReplies: savedPermissions.allowChatSendReplies ?? savedPermissions.allowChatSend ?? false,
       allowMcpSendNewEmails: savedPermissions.allowMcpSendNewEmails ?? savedPermissions.allowMcpSend ?? false,
