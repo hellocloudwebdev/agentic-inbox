@@ -10,7 +10,8 @@
  */
 import type { MailboxDO, AttachmentData } from "../durableObject";
 
-export const CHUNK_SIZE = 1024 * 1024; // 1 MiB (1,048,576 bytes)\nexport const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15 MiB per attachment
+export const CHUNK_SIZE = 1024 * 1024; // 1 MiB (1,048,576 bytes)
+export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15 MiB per attachment
 
 export interface AttachmentInput {
 	content: Uint8Array | ArrayBuffer | string;
@@ -60,8 +61,8 @@ export function sanitizeFilename(filename?: string | null): string {
  * Convert any attachment content format into a Uint8Array.
  */
 export function toUint8Array(content: Uint8Array | ArrayBuffer | string, isBase64 = false): Uint8Array {
-	if (content instanceof Uint8Array) return content;
-	if (content instanceof ArrayBuffer) return new Uint8Array(content);
+	if (content instanceof Uint8Array) {\n\t\tif (content.byteLength > MAX_ATTACHMENT_BYTES) throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);\n\t\treturn content;\n\t}
+	if (content instanceof ArrayBuffer) {\n\t\tif (content.byteLength > MAX_ATTACHMENT_BYTES) throw new RangeError(`Attachment exceeds the ${MAX_ATTACHMENT_BYTES} byte limit`);\n\t\treturn new Uint8Array(content);\n\t}
 	if (typeof content === "string") {
 		if (isBase64) {
 			const normalized = content

@@ -4,7 +4,7 @@ import {
   getSenderAvatarSources,
 } from "../app/lib/avatar-sources";
 
-describe("sender avatar brand resolution", () => {
+describe("sender avatar brand resolution", () => {\n  it("returns stable fallback values for empty identity fields", () => {\n    expect(getAvatarToneIndex("", "")).toBeGreaterThanOrEqual(0);\n    expect(getAvatarToneIndex("", "")).toBeLessThan(5);\n    expect(getSenderInitial("", "")).toBe("?");\n  });
   it("uses the local Zoho brand mark for Zoho Accounts sender domains", () => {
     expect(
       getSenderAvatarBrand("noreply@zohoaccounts.in"),

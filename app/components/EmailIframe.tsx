@@ -39,7 +39,7 @@ export function sanitizeEmailHtml(rawHtml: string): string {
 			.replace(/@import\b[^;]+;?/gi, "")
 			.replace(/url\(\s*['"]?\s*(?:https?:|\/\/)[^)]+\)/gi, "none")
 			.replace(/expression\s*\([^)]*\)/gi, "none");
-		return \`<style>\${safeCss}</style>\`;
+		return `<style>${safeCss}</style>`;
 	});
 }
 export default function EmailIframe({ body, autoSize }: EmailIframeProps) {

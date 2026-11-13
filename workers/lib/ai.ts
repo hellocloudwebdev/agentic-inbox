@@ -33,7 +33,8 @@ Respond with exactly one word: YES or NO.`;
 export async function isPromptInjection(env: Env, bodyHtml: string | null | undefined): Promise<boolean> {
  if (!bodyHtml) return false;
  const plainText = stripHtmlToText(bodyHtml).trim();
- if (plainText.length < 10) return false;
+ if (!plainText) return false;
+ if (FAST_INJECTION_PATTERNS.some((pattern) => pattern.test(plainText))) return true;
  try {
   const response = await generateForRole(env,"scanner",{system:INJECTION_PROMPT,prompt:plainText,maxOutputTokens:10,temperature:0});
   const result=response.text.trim().toUpperCase();
