@@ -17,8 +17,10 @@ import {
 	CheckCircleIcon,
 	StopIcon,
 	PencilSimpleIcon,
+	PlusIcon,
 } from "@phosphor-icons/react";
 import { useEffect, useRef, useState } from "react";
+import api, { type AgentConversation } from "~/services/api";
 import { useParams } from "react-router";
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -313,12 +315,107 @@ function AgentChatConnected({
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const inputRef = useRef<HTMLTextAreaElement>(null);
 	const [inputValue, setInputValue] = useState("");
+	const [activeConversationId, setActiveConversationId] = useState("inbox");
+	const [conversations, setConversations] = useState<AgentConversation[]>([]);
+	const [historySearch, setHistorySearch] = useState("");
+	const [historyLoading, setHistoryLoading] = useState(true);
 	const { startCompose } = useUIStore();
 
-	const agent = useAgent({ agent: "EmailAgent", name: mailboxId });
+	const agentName = activeConversationId === "inbox"
+		? mailboxId
+		: `${mailboxId}::${activeConversationId}`;
+	const agent = useAgent({ agent: "EmailAgent", name: agentName });
 	const { messages, sendMessage, status, setMessages, stop } =
 		useAgentChat({ agent });
 	const isStreaming = status === "streaming" || status === "submitted";
+
+	useEffect(() => {
+		let cancelled = false;
+		api.listAgentConversations(mailboxId).then(({ conversations: items }) => {
+			if (cancelled) return;
+			setConversations(items);
+			if (!items.some((item) => item.id === activeConversationId)) {
+				setActiveConversationId(items[0]?.id ?? "inbox");
+			}
+		}).catch((error) => {
+			console.error("Could not load agent chat history:", error);
+		}).finally(() => {
+			if (!cancelled) setHistoryLoading(false);
+		});
+		return () => { cancelled = true; };
+	}, [mailboxId]);
+
+	const currentConversation = conversations.find((item) => item.id === activeConversationId);
+
+	const startNewChat = async () => {
+		try {
+			const conversation = await api.createAgentConversation(mailboxId);
+			setConversations((old) => [conversation, ...old]);
+			setActiveConversationId(conversation.id);
+			setInputValue("");
+		} catch (error) {
+			console.error("Could not create a new chat:", error);
+		}
+	};
+
+	const renameChat = async (conversation: AgentConversation) => {
+		const title = window.prompt("Rename conversation", conversation.title)?.trim();
+		if (!title || title === conversation.title) return;
+		try {
+			const updated = await api.renameAgentConversation(mailboxId, conversation.id, title.slice(0, 80));
+			setConversations((old) => old.map((item) => item.id === conversation.id ? { ...item, ...updated } : item));
+		} catch (error) {
+			window.alert(error instanceof Error ? error.message : "Could not rename conversation.");
+		}
+	};
+
+	const deleteChat = async (conversation: AgentConversation) => {
+		const isInbox = conversation.id === "inbox";
+		if (!window.confirm(isInbox ? "Clear the Inbox assistant chat history?" : `Delete "${conversation.title}" and its messages?`)) return;
+		try {
+			await api.deleteAgentConversation(mailboxId, conversation.id);
+			if (isInbox) {
+				setMessages([]);
+			} else {
+				setConversations((old) => old.filter((item) => item.id !== conversation.id));
+				if (activeConversationId === conversation.id) setActiveConversationId("inbox");
+			}
+		} catch (error) {
+			window.alert(error instanceof Error ? error.message : "Could not delete conversation.");
+		}
+	};
+
+	const clearAllChats = async () => {
+		if (!window.confirm("Delete all chat history? This clears every conversation, including the Inbox assistant history.")) return;
+		try {
+			await api.deleteAllAgentConversations(mailboxId);
+			setConversations((old) => old.filter((item) => item.id === "inbox"));
+			setActiveConversationId("inbox");
+			setMessages([]);
+		} catch (error) {
+			window.alert(error instanceof Error ? error.message : "Could not clear chat history.");
+		}
+	};
+
+	const sendChatMessage = (text: string) => {
+		const value = text.trim();
+		if (!value || isStreaming) return;
+		sendMessage({ text: value });
+		void (async () => {
+			try {
+				if (currentConversation?.title === "New chat") {
+					const title = value.replace(/\s+/g, " ").slice(0, 56);
+					const updated = await api.renameAgentConversation(mailboxId, activeConversationId, title || "New chat");
+					setConversations((old) => old.map((item) => item.id === activeConversationId ? { ...item, ...updated } : item));
+				} else {
+					await api.touchAgentConversation(mailboxId, activeConversationId);
+					setConversations((old) => old.map((item) => item.id === activeConversationId ? { ...item, updatedAt: new Date().toISOString() } : item));
+				}
+			} catch (error) {
+				console.error("Could not update conversation metadata:", error);
+			}
+		})();
+	};
 
 	useEffect(() => {
 		const el = scrollRef.current;
@@ -333,7 +430,8 @@ function AgentChatConnected({
 		const text = inputValue.trim();
 		if (!text || isStreaming) return;
 		setInputValue("");
-		sendMessage({ text });
+		sendChatMessage(text);
+		setInputValue("");
 		if (inputRef.current) inputRef.current.style.height = "auto";
 	};
 
@@ -352,30 +450,41 @@ function AgentChatConnected({
 
 	return (
 		<div className="flex flex-col h-full">
-			{/* Header */}
-			<div className="flex items-center justify-between px-3 py-1.5 border-b border-kumo-line shrink-0">
-				<div className="flex items-center gap-2">
-					<Badge variant="beta">AI</Badge>
-					<span className="text-xs text-kumo-subtle">
-						Email Agent
-					</span>
+			{/* Header and persistent conversation history */}
+			<div className="shrink-0 border-b border-kumo-line px-3 py-2 space-y-2">
+				<div className="flex items-center justify-between gap-2">
+					<div className="flex items-center gap-2 min-w-0">
+						<Badge variant="beta">AI</Badge>
+						<span className="truncate text-xs text-kumo-subtle">Email Agent</span>
+						{isStreaming && <Loader size="sm" />}
+					</div>
+					<Button size="xs" variant="secondary" icon={<PlusIcon size={13} />} onClick={() => void startNewChat()}>New chat</Button>
 				</div>
-				<div className="flex items-center gap-1">
-					{isStreaming && <Loader size="sm" />}
+				<div className="flex items-center gap-2">
+					<div className="relative min-w-0 flex-1">
+						<MagnifyingGlassIcon size={13} className="absolute left-2 top-1/2 -translate-y-1/2 text-kumo-subtle" />
+						<input value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Search chats" aria-label="Search chat history" className="w-full rounded-md border border-kumo-line bg-kumo-control py-1.5 pl-7 pr-2 text-xs text-kumo-default placeholder:text-kumo-subtle" />
+					</div>
+					<Button size="xs" variant="ghost" onClick={() => void clearAllChats()}>Clear all</Button>
+				</div>
+				<div className="max-h-28 overflow-y-auto space-y-1" aria-label="Chat history">
+					{historyLoading ? (
+						<p className="px-2 py-1 text-[11px] text-kumo-subtle">Loading conversations…</p>
+					) : conversations.filter((item) => item.title.toLowerCase().includes(historySearch.toLowerCase())).length === 0 ? (
+						<p className="px-2 py-1 text-[11px] text-kumo-subtle">No matching conversations.</p>
+					) : conversations.filter((item) => item.title.toLowerCase().includes(historySearch.toLowerCase())).map((item) => (
+						<div key={item.id} className={`group flex items-center gap-1 rounded-md px-2 py-1 ${activeConversationId === item.id ? "bg-kumo-fill" : "hover:bg-kumo-tint"}`}>
+							<button type="button" onClick={() => setActiveConversationId(item.id)} className="min-w-0 flex-1 truncate text-left text-[11px] text-kumo-default">{item.title}</button>
+							<button type="button" onClick={() => void renameChat(item)} aria-label={`Rename ${item.title}`} className="rounded p-1 text-kumo-subtle opacity-60 hover:bg-kumo-fill hover:text-kumo-default"><PencilSimpleIcon size={12} /></button>
+							<button type="button" onClick={() => void deleteChat(item)} aria-label={item.id === "inbox" ? "Clear Inbox assistant history" : `Delete ${item.title}`} className="rounded p-1 text-kumo-subtle opacity-60 hover:bg-kumo-fill hover:text-kumo-error"><TrashIcon size={12} /></button>
+						</div>
+					))}
+				</div>
+				<div className="flex items-center justify-between gap-2">
+					<span className="truncate text-[10px] text-kumo-subtle">Chat: {currentConversation?.title ?? "Inbox assistant"}</span>
 					{messages.length > 0 && (
-						<Tooltip content="Clear chat" asChild>
-							<Button
-								variant="ghost"
-								shape="square"
-								size="sm"
-								icon={<TrashIcon size={14} />}
-								onClick={() => {
-									if (window.confirm("Clear chat history?")) {
-										setMessages([]);
-									}
-								}}
-								aria-label="Clear chat"
-							/>
+						<Tooltip content="Clear current chat" asChild>
+							<Button variant="ghost" shape="square" size="xs" icon={<TrashIcon size={13} />} onClick={() => void deleteChat(currentConversation ?? { id: "inbox", title: "Inbox assistant", createdAt: "", updatedAt: "" })} aria-label="Clear current chat" />
 						</Tooltip>
 					)}
 				</div>
@@ -402,7 +511,7 @@ function AgentChatConnected({
 									key={prompt}
 									type="button"
 									onClick={() =>
-										sendMessage({ text: prompt })
+										sendChatMessage(prompt)
 									}
 									className="text-left px-3 py-2 rounded-lg border border-kumo-line text-xs text-kumo-strong hover:bg-kumo-tint hover:border-kumo-fill-hover transition-colors cursor-pointer bg-transparent"
 								>
