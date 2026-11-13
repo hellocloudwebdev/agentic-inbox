@@ -83,7 +83,19 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
 
   useEffect(() => {
     if (query.data) {
-      setConfig(query.data.config);
+      // Migrate any older per-role configuration into one shared assistant route.
+      const existing = query.data.config;
+      const sharedPrimary = [existing.routing.chat, existing.routing.draft, existing.routing.verifier, existing.routing.scanner]
+        .find((target) => target?.providerId && target?.model) ?? { providerId: "", model: "" };
+      const sharedFallbacks = [0, 1].map((index) =>
+        [existing.fallbacks?.chat?.[index], existing.fallbacks?.draft?.[index], existing.fallbacks?.verifier?.[index], existing.fallbacks?.scanner?.[index]]
+          .find((target) => target?.providerId && target?.model) ?? { providerId: "", model: "" }
+      );
+      setConfig({
+        ...existing,
+        routing: { chat: sharedPrimary, draft: sharedPrimary, verifier: sharedPrimary, scanner: sharedPrimary },
+        fallbacks: { chat: sharedFallbacks, draft: sharedFallbacks, verifier: sharedFallbacks, scanner: sharedFallbacks },
+      });
       setSkills(query.data.skills);
     }
   }, [query.data]);
@@ -155,18 +167,23 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
 
   useImperativeHandle(ref, () => ({ savePending }), [config, skills]);
 
-  const route = (role: typeof roles[number], value: LlmRoleTarget) =>
-    setConfig((old) => ({ ...old, routing: { ...old.routing, [role]: value } }));
+  const route = (value: LlmRoleTarget) =>
+    setConfig((old) => ({
+      ...old,
+      routing: { chat: value, draft: value, verifier: value, scanner: value },
+    }));
 
-  const routeFallback = (role: typeof roles[number], index: number, value: LlmRoleTarget) =>
+  const routeFallback = (index: number, value: LlmRoleTarget) =>
     setConfig((old) => {
-      const current = old.fallbacks?.[role] ?? [];
       const next = [
-        current[0] ?? { providerId: "", model: "" },
-        current[1] ?? { providerId: "", model: "" },
+        old.fallbacks?.chat?.[0] ?? { providerId: "", model: "" },
+        old.fallbacks?.chat?.[1] ?? { providerId: "", model: "" },
       ];
       next[index] = value;
-      return { ...old, fallbacks: { ...old.fallbacks, [role]: next.slice(0, 2) } };
+      return {
+        ...old,
+        fallbacks: { chat: next, draft: next, verifier: next, scanner: next },
+      };
     });
 
   const modelOptions = (value: LlmRoleTarget, onChange: (value: LlmRoleTarget) => void) => (
@@ -256,7 +273,7 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
       <div className="rounded-xl border border-kumo-line bg-kumo-base p-5 space-y-4">
         <div>
           <h2 className="text-sm font-semibold text-kumo-default">AI Providers</h2>
-          <p className="mt-1 text-xs text-kumo-subtle">Connect model providers and route each agent task to its preferred model.</p>
+          <p className="mt-1 text-xs text-kumo-subtle">Connect model providers and configure one shared assistant model with two ordered fallbacks.</p>
         </div>
         <div className="rounded-lg border border-amber-300/60 bg-amber-50 p-3 text-xs text-amber-900">
           Privacy notice: email content and prompts are sent to the selected third-party AI provider when that provider handles a task. Review its data-retention and privacy policies before connecting it.
@@ -337,23 +354,24 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
           ))}
         </div>
         <div className="space-y-3 border-t border-kumo-line pt-4">
-          <div className="text-sm font-medium">Model routing</div>
-          {roles.map((role) => (
-            <div key={role} className="space-y-2 rounded-lg border border-kumo-line p-3">
-              <div className="text-sm font-medium capitalize">{role}</div>
-              <label className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
-                <span>Primary model</span>
-                {modelOptions(config.routing[role], (value) => route(role, value))}
+          <div>
+            <div className="text-sm font-medium">One AI assistant</div>
+            <p className="mt-1 text-xs text-kumo-subtle">The same assistant handles reading and searching emails, writing and sending emails, replies, drafts, folders, and skills. One model route applies consistently to every task.</p>
+          </div>
+          <div className="space-y-2 rounded-lg border border-kumo-line p-3">
+            <div className="text-sm font-medium">AI Assistant</div>
+            <label className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
+              <span>Primary model</span>
+              {modelOptions(config.routing.chat, route)}
+            </label>
+            {[0, 1].map((index) => (
+              <label key={index} className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
+                <span>Fallback {index + 1}</span>
+                {modelOptions(config.fallbacks?.chat?.[index] ?? { providerId: "", model: "" }, (value) => routeFallback(index, value))}
               </label>
-              {[0, 1].map((index) => (
-                <label key={index} className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
-                  <span>Fallback {index + 1}</span>
-                  {modelOptions(config.fallbacks?.[role]?.[index] ?? { providerId: "", model: "" }, (value) => routeFallback(role, index, value))}
-                </label>
-              ))}
-              <p className="text-[11px] text-kumo-subtle">Fallbacks run in order. You can select models from different providers or reuse the same provider.</p>
-            </div>
-          ))}
+            ))}
+            <p className="text-[11px] text-kumo-subtle">Fallbacks run in order. Each fallback can use a different provider and model. This shared configuration is used for every assistant task.</p>
+          </div>
         </div>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={config.fallbackToWorkersAi} onChange={(event) => setConfig((old) => ({ ...old, fallbackToWorkersAi: event.target.checked }))} />
