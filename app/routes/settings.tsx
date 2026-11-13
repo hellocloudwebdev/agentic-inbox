@@ -56,7 +56,15 @@ export default function SettingsRoute() {
     if (!mailbox) return;
     setDisplayName(mailbox.settings?.fromName || mailbox.name || "");
     setAgentPrompt(mailbox.settings?.agentSystemPrompt || "");
-    setAiEmail({ ...DEFAULT_AI_EMAIL, ...(mailbox.settings?.aiEmail ?? {}) });
+    const savedPermissions = (mailbox.settings?.aiEmail ?? {}) as Partial<AiEmailSettings> & { allowChatSend?: boolean; allowMcpSend?: boolean };
+    setAiEmail({
+      ...DEFAULT_AI_EMAIL,
+      ...savedPermissions,
+      allowChatSendNewEmails: savedPermissions.allowChatSendNewEmails ?? savedPermissions.allowChatSend ?? false,
+      allowChatSendReplies: savedPermissions.allowChatSendReplies ?? savedPermissions.allowChatSend ?? false,
+      allowMcpSendNewEmails: savedPermissions.allowMcpSendNewEmails ?? savedPermissions.allowMcpSend ?? false,
+      allowMcpSendReplies: savedPermissions.allowMcpSendReplies ?? savedPermissions.allowMcpSend ?? false,
+    });
   }, [mailbox]);
 
   const handleSave = async () => {
