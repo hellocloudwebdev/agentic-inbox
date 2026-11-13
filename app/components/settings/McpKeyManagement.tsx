@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button, useKumoToastManager } from "@cloudflare/kumo";
 import { ArrowClockwiseIcon, CopyIcon, KeyIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import api, { type McpApiKeyMetadata } from "~/services/api";
@@ -11,6 +11,8 @@ function formatDate(value: string | null) {
 
 export default function McpKeyManagement() {
   const toast = useKumoToastManager();
+  const toastRef = useRef(toast);
+  toastRef.current = toast;
   const [keys, setKeys] = useState<McpApiKeyMetadata[]>([]);
   const [label, setLabel] = useState("Agentic Inbox MCP");
   const [newSecret, setNewSecret] = useState("");
@@ -24,11 +26,11 @@ export default function McpKeyManagement() {
       const result = await api.listMcpKeys();
       setKeys(result.keys);
     } catch (error) {
-      toast.add({ title: "Could not load MCP keys", description: error instanceof Error ? error.message : String(error), variant: "error" });
+      toastRef.current.add({ title: "Could not load MCP keys", description: error instanceof Error ? error.message : String(error), variant: "error" });
     } finally {
       setLoading(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
