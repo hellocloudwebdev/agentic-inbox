@@ -186,19 +186,51 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
       };
     });
 
-  const modelOptions = (value: LlmRoleTarget, onChange: (value: LlmRoleTarget) => void) => (
-    <select className="w-full rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm"
-      value={value.providerId + "|" + value.model}
-      onChange={(event) => {
-        const [providerId, model] = event.target.value.split("|");
-        onChange({ providerId, model });
-      }}>
-      <option value="|">Workers AI (built-in)</option>
-      {config.providers.flatMap((provider) => provider.models.map((model) => (
-        <option key={provider.id + "|" + model} value={provider.id + "|" + model}>{provider.name} / {model}</option>
-      )))}
-    </select>
-  );
+  const providerAndModelSelectors = (value: LlmRoleTarget, onChange: (value: LlmRoleTarget) => void) => {
+    const selectedProvider = config.providers.find((provider) => provider.id === value.providerId);
+    return (
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <label className="min-w-0 text-[11px] text-kumo-subtle">
+          Provider
+          <select
+            aria-label="Provider"
+            className="mt-1 w-full min-w-0 rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm text-kumo-default"
+            value={value.providerId || "__workers_ai__"}
+            onChange={(event) => {
+              const providerId = event.target.value === "__workers_ai__" ? "" : event.target.value;
+              onChange({ providerId, model: "" });
+            }}
+          >
+            <option value="__workers_ai__">Workers AI (built-in)</option>
+            {config.providers.map((provider) => (
+              <option key={provider.id} value={provider.id}>{provider.name}</option>
+            ))}
+          </select>
+        </label>
+        <label className="min-w-0 text-[11px] text-kumo-subtle">
+          Model
+          <select
+            aria-label="Model"
+            className="mt-1 w-full min-w-0 rounded-lg border border-kumo-line bg-kumo-base p-2 text-sm text-kumo-default disabled:cursor-not-allowed disabled:opacity-70"
+            value={value.model}
+            disabled={!selectedProvider}
+            onChange={(event) => onChange({ ...value, model: event.target.value })}
+          >
+            {!selectedProvider ? (
+              <option value="">Automatic (Cloudflare Workers AI)</option>
+            ) : (
+              <>
+                <option value="">Select a model</option>
+                {selectedProvider.models.map((model) => (
+                  <option key={model} value={model}>{model}</option>
+                ))}
+              </>
+            )}
+          </select>
+        </label>
+      </div>
+    );
+  };
 
   const resetSkillForm = () => {
     setSkillName("");
@@ -362,12 +394,12 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
             <div className="text-sm font-medium">AI Assistant</div>
             <label className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
               <span>Primary model</span>
-              {modelOptions(config.routing.chat, route)}
+              {providerAndModelSelectors(config.routing.chat, route)}
             </label>
             {[0, 1].map((index) => (
               <label key={index} className="grid gap-1 text-xs text-kumo-subtle sm:grid-cols-[130px_1fr] sm:items-center">
                 <span>Fallback {index + 1}</span>
-                {modelOptions(config.fallbacks?.chat?.[index] ?? { providerId: "", model: "" }, (value) => routeFallback(index, value))}
+                {providerAndModelSelectors(config.fallbacks?.chat?.[index] ?? { providerId: "", model: "" }, (value) => routeFallback(index, value))}
               </label>
             ))}
             <p className="text-[11px] text-kumo-subtle">Fallbacks run in order. Each fallback can use a different provider and model. This shared configuration is used for every assistant task.</p>
