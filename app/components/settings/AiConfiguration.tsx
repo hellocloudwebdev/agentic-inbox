@@ -1,5 +1,6 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Button, useKumoToastManager } from "@cloudflare/kumo";
+import { CaretDownIcon, CheckIcon, MagnifyingGlassIcon } from "@phosphor-icons/react";
 import {
   useAiSettings,
   useFetchProviderModels,
@@ -39,6 +40,113 @@ const presets = [
 ];
 
 const roles = ["chat", "draft", "verifier", "scanner"] as const;
+
+
+interface SearchableModelPickerProps {
+  models: string[];
+  value: string;
+  disabled?: boolean;
+  onChange: (model: string) => void;
+}
+
+function SearchableModelPicker({ models, value, disabled = false, onChange }: SearchableModelPickerProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const normalizedSearch = search.trim().toLowerCase();
+  const filteredModels = models.filter((model) =>
+    model.toLowerCase().includes(normalizedSearch),
+  );
+
+  const close = () => {
+    setIsOpen(false);
+    setSearch("");
+  };
+
+  return (
+    <div
+      className="relative mt-1 min-w-0"
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) close();
+      }}
+      onKeyDown={(event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          close();
+        }
+      }}
+    >
+      <button
+        type="button"
+        aria-label="Select model"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        disabled={disabled}
+        onClick={() => setIsOpen((open) => !open)}
+        className="flex w-full min-w-0 items-center justify-between gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-left text-sm text-slate-900 transition-colors hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-100 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400"
+      >
+        <span className={value ? "min-w-0 truncate" : "min-w-0 truncate text-slate-400"}>
+          {value || (disabled ? "Automatic (Cloudflare Workers AI)" : "Select a model")}
+        </span>
+        <CaretDownIcon size={15} className="shrink-0 text-slate-500" />
+      </button>
+
+      {isOpen && !disabled && (
+        <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-lg border border-slate-200 bg-white shadow-xl">
+          <div className="border-b border-slate-100 p-2">
+            <div className="relative">
+              <MagnifyingGlassIcon
+                size={15}
+                aria-hidden="true"
+                className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400"
+              />
+              <input
+                autoFocus
+                type="search"
+                aria-label="Search models"
+                placeholder="Search models..."
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                className="w-full rounded-md border border-slate-200 bg-white py-2 pl-8 pr-3 text-xs text-slate-900 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-2 focus:ring-blue-50"
+              />
+            </div>
+            <div className="mt-1.5 px-1 text-[10px] text-slate-500">
+              {filteredModels.length} of {models.length} models
+            </div>
+          </div>
+          <div role="listbox" aria-label="Available models" className="max-h-64 overflow-y-auto p-1">
+            {filteredModels.length > 0 ? filteredModels.map((model) => {
+              const selected = model === value;
+              return (
+                <button
+                  key={model}
+                  type="button"
+                  role="option"
+                  aria-selected={selected}
+                  onClick={() => {
+                    onChange(model);
+                    close();
+                  }}
+                  className={"flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-2 text-left text-xs transition-colors " + (selected
+                    ? "bg-blue-50 font-medium text-blue-700"
+                    : "text-slate-700 hover:bg-slate-50")}
+                >
+                  <span className="min-w-0 break-all">{model}</span>
+                  {selected && <CheckIcon size={14} className="shrink-0" />}
+                </button>
+              );
+            }) : (
+              <div className="px-3 py-6 text-center text-xs text-slate-500">
+                {models.length === 0
+                  ? "No models fetched for this provider yet."
+                  : "No models match your search."}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export interface AiConfigurationSaveResult {
   saved: string[];
@@ -200,27 +308,15 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
             ))}
           </select>
         </label>
-        <label className="min-w-0 text-[11px] text-slate-600">
-          Model
-          <select
-            aria-label="Model"
-            className="mt-1 w-full min-w-0 rounded-lg border border-slate-200 bg-white p-2 text-sm text-slate-900 disabled:cursor-not-allowed disabled:opacity-70"
+        <div className="min-w-0 text-[11px] text-slate-600">
+          <span>Model</span>
+          <SearchableModelPicker
+            models={selectedProvider?.models ?? []}
             value={value.model}
             disabled={!selectedProvider}
-            onChange={(event) => onChange({ ...value, model: event.target.value })}
-          >
-            {!selectedProvider ? (
-              <option value="">Automatic (Cloudflare Workers AI)</option>
-            ) : (
-              <>
-                <option value="">Select a model</option>
-                {selectedProvider.models.map((model) => (
-                  <option key={model} value={model}>{model}</option>
-                ))}
-              </>
-            )}
-          </select>
-        </label>
+            onChange={(model) => onChange({ ...value, model })}
+          />
+        </div>
       </div>
     );
   };
