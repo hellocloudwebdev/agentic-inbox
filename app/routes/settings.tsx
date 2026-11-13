@@ -80,10 +80,10 @@ export default function SettingsRoute() {
       toastManager.add({ title: "All changes saved", description: saved.join(" · ") });
     } else {
       const details = [
-        ...(saved.length ? [\`Saved: \${saved.join(", ")}\`] : []),
-        ...failed.map((item) => \`\${item.section}: \${item.error}\`),
+        ...(saved.length ? [`Saved: ${saved.join(", ")}`] : []),
+        ...failed.map((item) => `${item.section}: ${item.error}`),
       ].join(" | ");
-      toastManager.add({ title: \`\${failed.length} settings section(s) failed to save\`, description: details, variant: "error" });
+      toastManager.add({ title: `${failed.length} settings section(s) failed to save`, description: details, variant: "error" });
     }
     setIsSaving(false);
   };
