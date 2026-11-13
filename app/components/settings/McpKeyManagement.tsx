@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button, useKumoToastManager } from "@cloudflare/kumo";
-import { ArrowClockwiseIcon, CheckIcon, CopyIcon, KeyIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
+import { ArrowClockwiseIcon, CopyIcon, KeyIcon, PlusIcon, TrashIcon } from "@phosphor-icons/react";
 import api, { type McpApiKeyMetadata } from "~/services/api";
 
 function formatDate(value: string | null) {

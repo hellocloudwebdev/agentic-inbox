@@ -385,6 +385,16 @@ function AgentChatConnected({
 		}
 	};
 
+	const clearCurrentChat = async () => {
+		if (!window.confirm("Clear this conversation's messages?")) return;
+		try {
+			await api.clearAgentConversation(mailboxId, activeConversationId);
+			setMessages([]);
+		} catch (error) {
+			window.alert(error instanceof Error ? error.message : "Could not clear conversation.");
+		}
+	};
+
 	const clearAllChats = async () => {
 		if (!window.confirm("Delete all chat history? This clears every conversation, including the Inbox assistant history.")) return;
 		try {
@@ -431,7 +441,6 @@ function AgentChatConnected({
 		if (!text || isStreaming) return;
 		setInputValue("");
 		sendChatMessage(text);
-		setInputValue("");
 		if (inputRef.current) inputRef.current.style.height = "auto";
 	};
 
@@ -484,7 +493,7 @@ function AgentChatConnected({
 					<span className="truncate text-[10px] text-kumo-subtle">Chat: {currentConversation?.title ?? "Inbox assistant"}</span>
 					{messages.length > 0 && (
 						<Tooltip content="Clear current chat" asChild>
-							<Button variant="ghost" shape="square" size="xs" icon={<TrashIcon size={13} />} onClick={() => void deleteChat(currentConversation ?? { id: "inbox", title: "Inbox assistant", createdAt: "", updatedAt: "" })} aria-label="Clear current chat" />
+							<Button variant="ghost" shape="square" size="xs" icon={<TrashIcon size={13} />} onClick={() => void clearCurrentChat()} aria-label="Clear current chat" />
 						</Tooltip>
 					)}
 				</div>

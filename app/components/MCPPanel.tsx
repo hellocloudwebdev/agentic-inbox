@@ -91,7 +91,7 @@ export default function MCPPanel() {
 						This email agent exposes an MCP server so AI coding
 						assistants can manage your inbox directly — read emails,
 						search, draft replies, and send messages using natural
-						language.
+						language. Generate a dedicated bearer API key in Settings and configure your MCP client with an Authorization: Bearer header. Sending tools remain blocked until MCP sending is enabled in AI email permissions.
 					</p>
 				</div>
 
