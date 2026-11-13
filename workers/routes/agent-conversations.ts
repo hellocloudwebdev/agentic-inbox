@@ -6,8 +6,8 @@ import { AppSettingsRepository } from "../db/repositories/app-settings-repositor
 export interface AgentConversationRecord { id:string; title:string; createdAt:string; updatedAt:string }
 const app = new Hono<{Bindings:Env}>();
 const DEFAULT_CONVERSATION:AgentConversationRecord={id:"inbox",title:"Inbox assistant",createdAt:new Date(0).toISOString(),updatedAt:new Date(0).toISOString()};
-function settingsKey(mailboxId:string){return \`agent.conversations:\${mailboxId.trim().toLowerCase()}\`;}
-function agentName(mailboxId:string,conversationId:string){return conversationId==="inbox"?mailboxId.trim().toLowerCase():\`\${mailboxId.trim().toLowerCase()}::\${conversationId}\`;}
+function settingsKey(mailboxId:string){return `agent.conversations:${mailboxId.trim().toLowerCase()}`;}
+function agentName(mailboxId:string,conversationId:string){return conversationId==="inbox"?mailboxId.trim().toLowerCase():`${mailboxId.trim().toLowerCase()}::${conversationId}`;}
 async function repository(env:Env){await ensureNeonSchema(env);return new AppSettingsRepository(getNeonDb(env));}
 async function readConversations(mailboxId:string,repo:AppSettingsRepository){
  const existing=await repo.getSetting<AgentConversationRecord[]>(settingsKey(mailboxId));
@@ -17,7 +17,7 @@ async function readConversations(mailboxId:string,repo:AppSettingsRepository){
 async function clearConversation(env:Env,mailboxId:string,id:string){
  const stub=env.EMAIL_AGENT.get(env.EMAIL_AGENT.idFromName(agentName(mailboxId,id)));
  const response=await stub.fetch(new Request("https://agent/history",{method:"DELETE"}));
- if(!response.ok)throw new Error(\`Could not clear chat history for conversation \${id}\`);
+ if(!response.ok)throw new Error(`Could not clear chat history for conversation ${id}`);
 }
 app.get("/conversations",async c=>{
  const mailboxId=c.req.param("mailboxId"),repo=await repository(c.env);
