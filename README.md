@@ -255,6 +255,16 @@ The Zoho transport tests validate the sender integration through a test SMTP moc
 
 A live production smoke test is still required to verify Zoho authentication and real external delivery in a deployed environment.
 
+## AI sending permissions and MCP credentials
+
+AI email sending is controlled independently for automatic replies, AI chat, and external MCP clients. All three permissions default to off. When automatic replies are disabled, incoming mail can still be analyzed and a reply draft can be created, but the Worker blocks automatic sending. The Worker also enforces chat and MCP send permissions at the tool boundary.
+
+Generate MCP bearer credentials from Settings → MCP API access. A generated key is shown once; only its SHA-256 hash is stored. Revoke or regenerate keys from the same screen. Regeneration revokes the previous credential. Use the key as an `Authorization: Bearer <key>` header when connecting to the `/mcp` endpoint. MCP keys authorize the MCP endpoint only and do not replace the Clerk session required by the web app and REST API.
+
+The AI assistant keeps separate persistent conversations. Chat titles and metadata are stored in Neon, while each conversation's message history is stored in its own EmailAgent Durable Object. Use the chat history controls to search, rename, clear, or delete conversations.
+
+Settings uses one Save all changes action for mailbox/account settings, agent instructions, email permissions, AI providers/model routing, and agent skills. MCP key creation and revocation take effect immediately so credential changes do not remain pending.
+
 ## Operational notes
 
 - Attachment payloads are stored in sequential 1 MiB chunks to keep SQLite writes bounded and support streamed downloads.

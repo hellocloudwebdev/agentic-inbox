@@ -18,6 +18,8 @@ import {
 import { SendEmailRequestSchema } from "./lib/schemas";
 import { handleReplyEmail, handleForwardEmail } from "./routes/reply-forward";
 import { aiSettingsRoutes } from "./routes/ai-settings";
+import { mcpKeyRoutes } from "./routes/mcp-keys";
+import { agentConversationRoutes } from "./routes/agent-conversations";
 import { Folders } from "../shared/folders";
 import type { Env } from "./types";
 import { requireMailbox, type MailboxContext } from "./lib/mailbox";
@@ -98,6 +100,8 @@ app.get("/api/v1/config", (c) => {
 
 // -- AI provider and agent skill settings ---------------------------
 app.route("/api/v1/ai", aiSettingsRoutes);
+app.route("/api/v1/mcp", mcpKeyRoutes);
+app.route("/api/v1/mailboxes/:mailboxId/agent", agentConversationRoutes);
 
 // -- Mailboxes ------------------------------------------------------
 

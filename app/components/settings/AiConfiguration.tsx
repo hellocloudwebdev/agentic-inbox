@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Button, useKumoToastManager } from "@cloudflare/kumo";
 import {
   useAiSettings,
@@ -50,7 +50,15 @@ function readFrontmatterValue(frontmatter: string, key: string): string | undefi
   return match?.[1] ?? match?.[2] ?? match?.[3]?.trim() ?? undefined;
 }
 
-export function AiConfiguration() {
+export interface AiConfigurationSaveResult {
+  saved: string[];
+  failed: Array<{ section: string; error: string }>;
+}
+export interface AiConfigurationHandle {
+  savePending: () => Promise<AiConfigurationSaveResult>;
+}
+
+export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConfiguration(_props, ref) {
   const toast = useKumoToastManager();
   const query = useAiSettings();
   const saveConfig = useSaveAiConfig();
@@ -120,19 +128,32 @@ export function AiConfiguration() {
     setEditingProviderId(null);
     toast.add({
       title: editingProviderId ? "Provider updated" : "Provider added",
-      description: "Save AI settings to persist your changes.",
+      description: "Pending change — use the single Save all changes button at the bottom of Settings.",
     });
   };
 
-  const save = async () => {
-    try {
-      await saveConfig.mutateAsync(config);
-      await saveSkills.mutateAsync(skills);
-      toast.add({ title: "AI settings saved" });
-    } catch (error) {
-      toast.add({ title: "Save failed", description: (error as Error).message, variant: "error" });
+  const savePending = async (): Promise<AiConfigurationSaveResult> => {
+    if (query.isLoading || !query.data) {
+      return { saved: [], failed: [{ section: "AI providers and skills", error: "AI settings have not finished loading. Wait for the settings panel to load, then save again." }] };
     }
+    const results = await Promise.allSettled([
+      saveConfig.mutateAsync(config),
+      saveSkills.mutateAsync(skills),
+    ]);
+    const sections = ["AI providers and model routing", "Agent skills"];
+    const saved: string[] = [];
+    const failed: Array<{ section: string; error: string }> = [];
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled") saved.push(sections[index]);
+      else failed.push({
+        section: sections[index],
+        error: result.reason instanceof Error ? result.reason.message : String(result.reason),
+      });
+    });
+    return { saved, failed };
   };
+
+  useImperativeHandle(ref, () => ({ savePending }), [config, skills]);
 
   const route = (role: typeof roles[number], value: LlmRoleTarget) =>
     setConfig((old) => ({ ...old, routing: { ...old.routing, [role]: value } }));
@@ -190,7 +211,7 @@ export function AiConfiguration() {
         skill.id === editingSkillId ? { ...skill, ...value } : skill,
       );
     });
-    toast.add({ title: editingSkillId ? "Skill updated" : "Skill added", description: "Save AI settings to persist it." });
+    toast.add({ title: editingSkillId ? "Skill updated" : "Skill added", description: "Pending change — use the single Save all changes button at the bottom of Settings." });
     resetSkillForm();
   };
 
@@ -423,9 +444,6 @@ export function AiConfiguration() {
         </div>
       </div>
 
-      <div className="flex justify-end">
-        <Button variant="primary" onClick={save} loading={saveConfig.isPending || saveSkills.isPending}>Save AI settings</Button>
-      </div>
     </section>
   );
-}
+});

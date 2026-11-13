@@ -14,6 +14,11 @@ export interface MailboxSettings {
 	signature?: SignatureSettings;
 	autoReply?: { enabled: boolean; subject: string; message: string };
 	agentSystemPrompt?: string;
+	aiEmail?: {
+		autoReplyOnIncoming: boolean;
+		allowChatSend: boolean;
+		allowMcpSend: boolean;
+	};
 }
 
 export interface Mailbox {
