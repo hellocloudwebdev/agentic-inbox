@@ -97,3 +97,9 @@ button,
     display: none;
   }
 }
+
+
+/* Legacy root profile bar was removed; keep cached shells from showing it. */
+body header.flex.items-center.justify-end.border-b.border-kumo-line.bg-kumo-base.px-4.py-2 {
+  display: none !important;
+}

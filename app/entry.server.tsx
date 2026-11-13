@@ -40,6 +40,8 @@ export default async function handleRequest(
   }
 
   responseHeaders.set("Content-Type", "text/html");
+  // Always fetch the latest app shell so removed global UI cannot linger in browser caches.
+  responseHeaders.set("Cache-Control", "private, no-store, max-age=0, must-revalidate");
   return new Response(body, {
     headers: responseHeaders,
     status: responseStatusCode,
