@@ -424,8 +424,8 @@ export class EmailAgent extends AIChatAgent<any> {
 	}
 
 	/**
-	 * Called when a new email arrives. Reads it, loads the thread,
-	 * drafts a response, and saves it to the Drafts folder.
+	 * Called when a new email arrives. Reads and safety-checks the thread,
+	 * then either sends an allowed automatic reply or saves a draft.
 	 */
 	async handleNewEmail(emailData: {
 		mailboxId: string;
