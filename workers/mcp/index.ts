@@ -86,7 +86,7 @@ export class EmailMCP extends McpAgent<Env> {
 					return permissions;
 				} catch (error) {
 					console.error("Could not load MCP send permissions:", error instanceof Error ? error.message : String(error));
-					return false;
+					return getEmailAutomationSettings(null);
 				}
 			};
 
