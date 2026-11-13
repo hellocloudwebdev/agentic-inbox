@@ -160,6 +160,9 @@ app.put("/api/v1/mailboxes/:mailboxId", async (c) => {
 		if (err instanceof MailboxNotFoundError) {
 			return c.json({ error: "Not found" }, 404);
 		}
+		if (err instanceof z.ZodError) {
+			return c.json({ error: "Invalid mailbox settings", details: err.issues }, 400);
+		}
 		throw err;
 	}
 });
