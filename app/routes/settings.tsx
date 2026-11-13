@@ -10,7 +10,7 @@ import { useMailbox, useUpdateMailbox } from "~/queries/mailboxes";
 import { AiConfiguration, type AiConfigurationHandle } from "~/components/settings/AiConfiguration";
 import McpKeyManagement from "~/components/settings/McpKeyManagement";
 
-const PROMPT_PLACEHOLDER = \`The built-in email-agent instructions are always active. Add extra rules for this mailbox here. These instructions extend the defaults rather than replacing them.\`;
+const PROMPT_PLACEHOLDER = `The built-in email-agent instructions are always active. Add extra rules for this mailbox here. These instructions extend the defaults rather than replacing them.`;
 type AiEmailSettings = { autoReplyOnIncoming: boolean; allowChatSend: boolean; allowMcpSend: boolean };
 const DEFAULT_AI_EMAIL: AiEmailSettings = { autoReplyOnIncoming: false, allowChatSend: false, allowMcpSend: false };
 
