@@ -11,8 +11,20 @@ import { AiConfiguration, type AiConfigurationHandle } from "~/components/settin
 import McpKeyManagement from "~/components/settings/McpKeyManagement";
 
 const PROMPT_PLACEHOLDER = `The built-in email-agent instructions are always active. Add extra rules for this mailbox here. These instructions extend the defaults rather than replacing them.`;
-type AiEmailSettings = { autoReplyOnIncoming: boolean; allowChatSend: boolean; allowMcpSend: boolean };
-const DEFAULT_AI_EMAIL: AiEmailSettings = { autoReplyOnIncoming: false, allowChatSend: false, allowMcpSend: false };
+type AiEmailSettings = {
+  autoReplyOnIncoming: boolean;
+  allowChatSendNewEmails: boolean;
+  allowChatSendReplies: boolean;
+  allowMcpSendNewEmails: boolean;
+  allowMcpSendReplies: boolean;
+};
+const DEFAULT_AI_EMAIL: AiEmailSettings = {
+  autoReplyOnIncoming: false,
+  allowChatSendNewEmails: false,
+  allowChatSendReplies: false,
+  allowMcpSendNewEmails: false,
+  allowMcpSendReplies: false,
+};
 
 function PermissionToggle({ title, description, checked, onChange }: {
   title: string; description: string; checked: boolean; onChange: (value: boolean) => void;
@@ -111,8 +123,10 @@ export default function SettingsRoute() {
           </div>
           <div className="rounded-lg border border-kumo-line bg-kumo-base p-4 space-y-2">
             <PermissionToggle title="Automatic replies to incoming emails" description="When enabled, the agent may send a reply without waiting for you. When disabled, it prepares a draft instead." checked={aiEmail.autoReplyOnIncoming} onChange={(value) => setAiEmail((old) => ({ ...old, autoReplyOnIncoming: value }))} />
-            <PermissionToggle title="Send emails from AI chat" description="Allows the assistant to send a new email or reply when you explicitly ask in chat." checked={aiEmail.allowChatSend} onChange={(value) => setAiEmail((old) => ({ ...old, allowChatSend: value }))} />
-            <PermissionToggle title="Send emails through MCP" description="Allows authenticated external MCP clients to send new emails and replies." checked={aiEmail.allowMcpSend} onChange={(value) => setAiEmail((old) => ({ ...old, allowMcpSend: value }))} />
+            <PermissionToggle title="Send new emails from AI chat" description="Allows the assistant to send a new outbound email when you explicitly ask in chat." checked={aiEmail.allowChatSendNewEmails} onChange={(value) => setAiEmail((old) => ({ ...old, allowChatSendNewEmails: value }))} />
+            <PermissionToggle title="Reply to emails from AI chat" description="Allows the assistant to send a reply to an existing email when you explicitly ask in chat." checked={aiEmail.allowChatSendReplies} onChange={(value) => setAiEmail((old) => ({ ...old, allowChatSendReplies: value }))} />
+            <PermissionToggle title="Send new emails through MCP" description="Allows authenticated MCP clients to send new outbound emails." checked={aiEmail.allowMcpSendNewEmails} onChange={(value) => setAiEmail((old) => ({ ...old, allowMcpSendNewEmails: value }))} />
+            <PermissionToggle title="Reply to emails through MCP" description="Allows authenticated MCP clients to send replies to existing emails." checked={aiEmail.allowMcpSendReplies} onChange={(value) => setAiEmail((old) => ({ ...old, allowMcpSendReplies: value }))} />
           </div>
         </section>
 
