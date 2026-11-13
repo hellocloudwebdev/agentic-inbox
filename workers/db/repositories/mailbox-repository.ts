@@ -31,10 +31,15 @@ export const MailboxSettingsSchema = z
 			.optional(),
 		agentSystemPrompt: z.string().optional(),
 		aiEmail: z.object({
-			autoReplyOnIncoming: z.boolean(),
-			allowChatSend: z.boolean(),
-			allowMcpSend: z.boolean(),
-		}).optional(),
+			autoReplyOnIncoming: z.boolean().optional(),
+			allowChatSendNewEmails: z.boolean().optional(),
+			allowChatSendReplies: z.boolean().optional(),
+			allowMcpSendNewEmails: z.boolean().optional(),
+			allowMcpSendReplies: z.boolean().optional(),
+			// Legacy combined permissions remain optional for existing installations.
+			allowChatSend: z.boolean().optional(),
+			allowMcpSend: z.boolean().optional(),
+		}).passthrough().optional(),
 	})
 	.passthrough();
 
