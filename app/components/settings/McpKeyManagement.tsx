@@ -47,7 +47,7 @@ export default function McpKeyManagement() {
   };
 
   const regenerate = async (item: McpApiKeyMetadata) => {
-    if (!window.confirm(\`Regenerate "\${item.label}"? The existing key will be revoked immediately.\`)) return;
+    if (!window.confirm(`Regenerate "${item.label}"? The existing key will be revoked immediately.`)) return;
     setBusyId(item.id);
     try {
       const result = await api.regenerateMcpKey(item.id);
@@ -60,7 +60,7 @@ export default function McpKeyManagement() {
   };
 
   const revoke = async (item: McpApiKeyMetadata) => {
-    if (!window.confirm(\`Revoke "\${item.label}"? Connected MCP clients will stop authenticating.\`)) return;
+    if (!window.confirm(`Revoke "${item.label}"? Connected MCP clients will stop authenticating.`)) return;
     setBusyId(item.id);
     try {
       await api.revokeMcpKey(item.id);
@@ -98,7 +98,7 @@ export default function McpKeyManagement() {
         <label className="block text-xs font-medium text-kumo-strong">MCP server URL</label>
         <div className="flex items-center gap-2">
           <code className="min-w-0 flex-1 break-all text-xs text-kumo-default">{baseUrl}/mcp</code>
-          <Button size="xs" variant="ghost" icon={<CopyIcon size={13} />} onClick={() => void copy(\`\${baseUrl}/mcp\`)} aria-label="Copy MCP URL" />
+          <Button size="xs" variant="ghost" icon={<CopyIcon size={13} />} onClick={() => void copy(`${baseUrl}/mcp`)} aria-label="Copy MCP URL" />
         </div>
         <label className="block text-xs font-medium text-kumo-strong pt-2">Key label</label>
         <input value={label} onChange={(event) => setLabel(event.target.value)} maxLength={80} className="w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default" placeholder="For example: Cursor on laptop" />
@@ -131,7 +131,7 @@ export default function McpKeyManagement() {
                 <span className={item.status === "active" ? "rounded-full bg-kumo-fill px-2 py-0.5 text-[10px] text-kumo-success" : "rounded-full bg-kumo-fill px-2 py-0.5 text-[10px] text-kumo-subtle"}>{item.status}</span>
               </div>
               <p className="mt-1 text-[11px] text-kumo-subtle">Created {formatDate(item.createdAt)}</p>
-              <p className="text-[11px] text-kumo-subtle">Last used {formatDate(item.lastUsedAt)}{item.revokedAt ? \` · Revoked \${formatDate(item.revokedAt)}\` : ""}</p>
+              <p className="text-[11px] text-kumo-subtle">Last used {formatDate(item.lastUsedAt)}{item.revokedAt ? ` · Revoked ${formatDate(item.revokedAt)}` : ""}</p>
             </div>
             {item.status === "active" && (
               <div className="flex items-center gap-1">
