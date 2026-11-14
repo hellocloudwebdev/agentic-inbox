@@ -27,7 +27,7 @@ import {
 	buildThreadingHeaders,
 } from "./email-helpers";
 import { verifyDraft } from "./ai";
-import { sendEmail } from "../email-sender";
+import { sendEmail, SmtpDeliveryError } from "../email-sender";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
 
@@ -446,7 +446,8 @@ export async function toolSendReply(
 		});
 	} catch (e) {
 		console.error("Email send failed:", (e as Error).message);
-		return { error: `Failed to send reply: ${(e as Error).message}` };
+		if (e instanceof SmtpDeliveryError && e.outcome === "unknown") return { error: e.message };
+		return { error: `Failed to send reply before submission: ${(e as Error).message}` };
 	}
 
 	try {
@@ -521,7 +522,8 @@ export async function toolSendEmail(
 		});
 	} catch (e) {
 		console.error("Email send failed:", (e as Error).message);
-		return { error: `Failed to send email: ${(e as Error).message}` };
+		if (e instanceof SmtpDeliveryError && e.outcome === "unknown") return { error: e.message };
+		return { error: `Failed to send email before submission: ${(e as Error).message}` };
 	}
 
 	try {

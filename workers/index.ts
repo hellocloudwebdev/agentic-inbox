@@ -6,7 +6,7 @@ import { type Context, Hono } from "hono";
 import { cors } from "hono/cors";
 import PostalMime from "postal-mime";
 import { z } from "zod";
-import { sendEmail } from "./email-sender";
+import { sendEmail, SmtpDeliveryError } from "./email-sender";
 import { prepareAttachments, attachmentStorage, type StoredAttachment } from "./lib/attachments";
 import {
 	validateSender,
@@ -234,7 +234,13 @@ app.post("/api/v1/mailboxes/:mailboxId/emails", async (c: AppContext) => {
 	} catch (e) {
 		const details = e instanceof Error ? e.message : String(e);
 		console.error("Zoho SMTP compose delivery failed:", details);
-		return c.json({ error: "Email delivery failed", details }, 502);
+		if (e instanceof SmtpDeliveryError && e.outcome === "unknown") {
+			return c.json({
+				error: "Delivery outcome unknown. Zoho may have accepted this email; do not resend until you check the Zoho Sent folder.",
+				outcome: "unknown",
+			}, 409);
+		}
+		return c.json({ error: "Email delivery failed before submission", details, outcome: "not_sent" }, 502);
 	}
 
 	try {

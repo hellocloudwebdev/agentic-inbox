@@ -3,7 +3,7 @@
 //     https://opensource.org/licenses/Apache-2.0
 
 import type { Context } from "hono";
-import { sendEmail } from "../email-sender";
+import { sendEmail, SmtpDeliveryError } from "../email-sender";
 import { prepareAttachments } from "../lib/attachments";
 import type { EmailFull } from "../lib/schemas";
 import {
@@ -70,7 +70,13 @@ export async function handleReplyEmail(c: AppContext) {
 	} catch (e) {
 		const details = e instanceof Error ? e.message : String(e);
 		console.error("Zoho SMTP reply delivery failed:", details);
-		return c.json({ error: "Reply delivery failed", details }, 502);
+		if (e instanceof SmtpDeliveryError && e.outcome === "unknown") {
+			return c.json({
+				error: "Reply delivery outcome unknown. Zoho may have accepted the message; do not resend until you check the Zoho Sent folder.",
+				outcome: "unknown",
+			}, 409);
+		}
+		return c.json({ error: "Reply delivery failed before submission", details, outcome: "not_sent" }, 502);
 	}
 
 	try {
@@ -161,7 +167,13 @@ export async function handleForwardEmail(c: AppContext) {
 	} catch (e) {
 		const details = e instanceof Error ? e.message : String(e);
 		console.error("Zoho SMTP forward delivery failed:", details);
-		return c.json({ error: "Forward delivery failed", details }, 502);
+		if (e instanceof SmtpDeliveryError && e.outcome === "unknown") {
+			return c.json({
+				error: "Forward delivery outcome unknown. Zoho may have accepted the message; do not resend until you check the Zoho Sent folder.",
+				outcome: "unknown",
+			}, 409);
+		}
+		return c.json({ error: "Forward delivery failed before submission", details, outcome: "not_sent" }, 502);
 	}
 
 	try {
