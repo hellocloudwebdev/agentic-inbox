@@ -51,6 +51,11 @@ app.use("*", async (c, next) => {
 
 	const isMcpPath = pathname === "/mcp" || pathname.startsWith("/mcp/");
 	if (isMcpPath) {
+		// Streamable HTTP clients may send CORS preflight requests without credentials.
+		// The actual initialize/tool requests still require a scoped bearer key.
+		if (c.req.method === "OPTIONS") {
+			return mcpHandler.fetch(c.req.raw, c.env, c.executionCtx as ExecutionContext);
+		}
 		const principal = await authenticateMcpApiKey(c.req.raw, c.env);
 		if (!principal) return c.json({ error: "Unauthorized MCP API key." }, 401);
 		const headers = new Headers(c.req.raw.headers);
