@@ -97,7 +97,15 @@ describe("Attachment Storage Service & Chunking", () => {
 			expect(new TextDecoder().decode(u8FromText)).toBe(text);
 		});
 
-		it("decodes data URIs and whitespace-wrapped base64", () => {
+		it("rejects aggregate attachments above the Zoho-safe message budget", () => {
+		const payload = new Uint8Array(14 * 1024 * 1024);
+		expect(() => prepareAttachments("email-1", [
+			{ filename: "one.bin", content: payload },
+			{ filename: "two.bin", content: payload },
+		])).toThrow(/Total attachments exceed/);
+	});
+
+	it("decodes data URIs and whitespace-wrapped base64", () => {
 			expect(new TextDecoder().decode(toUint8Array("data:text/plain;base64,SGVs\r\nbG8gV29ybGQ=", true))).toBe("Hello World");
 		});
 
