@@ -72,7 +72,7 @@ export class EmailMCP extends McpAgent<Env, McpSessionState> {
 
 	// McpAgent sessions are per MCP client. Carry the key id from the Worker
 	// middleware into this session; tool calls re-check revocation in Neon.
-	onConnect(connection: any, ctx: any) {
+	async onConnect(connection: any, ctx: any): Promise<void> {
 		const keyId = ctx?.request?.headers?.get(MCP_SESSION_KEY_ID_HEADER);
 		if (!keyId || !/^[0-9a-f-]{36}$/i.test(keyId)) {
 			connection.close(1008, "Missing authenticated MCP principal");

@@ -334,7 +334,11 @@ function AgentChatConnected({
 	// stream rather than allowing its late chunks to bleed into the new chat.
 	useEffect(() => {
 		const stopThisConversation = stop;
-		return () => stopThisConversation();
+		return () => {
+			void stopThisConversation().catch((error) => {
+				console.warn("Could not stop the previous conversation stream:", error);
+			});
+		};
 		// stop is intentionally captured per agentName, not re-bound per render.
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, [agentName]);
