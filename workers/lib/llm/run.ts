@@ -1,4 +1,4 @@
-import { generateText } from "ai";
+import { generateText, type LanguageModelV3 } from "ai";
 import { createFallback } from "ai-fallback";
 import type { Env } from "../../types";
 import type { LlmRole, LlmConfig, RoleTarget } from "./types";
@@ -24,7 +24,7 @@ function configuredTargets(config:LlmConfig|null,role:LlmRole):RoleTarget[]{
  * Build a request-level fallback model. AI SDK retries the next model when a
  * provider fails before producing output, including streaming chat requests.
  */
-export async function resolveRole(env:Env,role:LlmRole){
+export async function resolveRole(env:Env,role:LlmRole): Promise<LanguageModelV3> {
  const config=await getLlmConfig(env);
  const targets=configuredTargets(config,role);
  const models: Array<Awaited<ReturnType<typeof resolveProviderModel>>> = [];
