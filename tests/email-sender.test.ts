@@ -10,7 +10,7 @@ vi.mock("@workermailer/smtp", () => ({
 	WorkerMailer: { connect: connectMock },
 }));
 
-import { sendEmail } from "../workers/email-sender";
+import { sendEmail, SmtpDeliveryError } from "../workers/email-sender";
 
 const smtpEnv = {
 	ZOHO_SMTP_HOST: "smtp.zoho.in",
@@ -153,15 +153,54 @@ describe("Zoho SMTP sender", () => {
 		expect(connectMock).not.toHaveBeenCalled();
 	});
 
-	it("closes the SMTP connection when sending fails", async () => {
-		sendMock.mockRejectedValueOnce(new Error("SMTP rejected recipient"));
+	it("retries one transient connection failure before submitting the message", async () => {
+		connectMock
+			.mockRejectedValueOnce(Object.assign(new Error("connection reset"), { code: "ECONNRESET" }))
+			.mockResolvedValueOnce({ send: sendMock, close: closeMock });
+
+		await sendEmail(smtpEnv, {
+			from: "mail@neerajsingh.me",
+			to: "recipient@example.com",
+			subject: "Safe connection retry",
+			text: "Hello",
+		});
+
+		expect(connectMock).toHaveBeenCalledTimes(2);
+		expect(sendMock).toHaveBeenCalledTimes(1);
+		expect(closeMock).toHaveBeenCalledTimes(1);
+	});
+
+	it("classifies a connection failure after one safe retry as not sent", async () => {
+		connectMock
+			.mockRejectedValueOnce(Object.assign(new Error("connection reset"), { code: "ECONNRESET" }))
+			.mockRejectedValueOnce(Object.assign(new Error("connection reset"), { code: "ECONNRESET" }));
+
 		await expect(sendEmail(smtpEnv, {
 			from: "mail@neerajsingh.me",
 			to: "recipient@example.com",
-			subject: "Failure case",
+			subject: "Connect failure",
 			text: "Hello",
-		})).rejects.toThrow("SMTP rejected recipient");
+		})).rejects.toMatchObject({ outcome: "not_sent" });
 
+		expect(connectMock).toHaveBeenCalledTimes(2);
+		expect(sendMock).not.toHaveBeenCalled();
+	});
+
+	it("classifies send() failures as ambiguous and never retries delivery", async () => {
+		sendMock.mockRejectedValueOnce(new Error("socket closed after DATA"));
+		await expect(sendEmail(smtpEnv, {
+			from: "mail@neerajsingh.me",
+			to: "recipient@example.com",
+			subject: "Ambiguous delivery",
+			text: "Hello",
+		})).rejects.toMatchObject({
+			name: "SmtpDeliveryError",
+			outcome: "unknown",
+			message: expect.stringContaining("Check Zoho Sent"),
+		});
+
+		expect(connectMock).toHaveBeenCalledTimes(1);
+		expect(sendMock).toHaveBeenCalledTimes(1);
 		expect(closeMock).toHaveBeenCalledTimes(1);
 	});
 });
