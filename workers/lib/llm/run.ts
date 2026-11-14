@@ -1,4 +1,5 @@
-import { generateText, type LanguageModelV3 } from "ai";
+import { generateText } from "ai";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { createFallback } from "ai-fallback";
 import type { Env } from "../../types";
 import type { LlmRole, LlmConfig, RoleTarget } from "./types";

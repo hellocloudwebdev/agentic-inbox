@@ -1,4 +1,4 @@
-import type { LanguageModelV3 } from "ai";
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
