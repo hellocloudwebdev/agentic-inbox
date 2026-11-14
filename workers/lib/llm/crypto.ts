@@ -1,4 +1,9 @@
 const encoder = new TextEncoder();
+function copyBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
+}
 const decoder = new TextDecoder();
 function decodeKey(value: string): Uint8Array {
   const raw = value.trim();
@@ -10,18 +15,18 @@ function decodeKey(value: string): Uint8Array {
 async function getKey(secret: string): Promise<CryptoKey> {
   const bytes = decodeKey(secret);
   if (![16, 24, 32].includes(bytes.length)) throw new Error("LLM_ENCRYPTION_KEY must be a 128, 192, or 256-bit base64/hex key");
-  return crypto.subtle.importKey("raw", bytes, "AES-GCM", false, ["encrypt", "decrypt"]);
+  return crypto.subtle.importKey("raw", copyBytes(bytes), "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 export async function encryptApiKey(value: string, secret: string): Promise<string> {
   if (!value.trim()) throw new Error("API key is required");
   const iv = crypto.getRandomValues(new Uint8Array(12));
-  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, await getKey(secret), encoder.encode(value));
+  const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv: copyBytes(iv) }, await getKey(secret), copyBytes(encoder.encode(value)));
   const bytes = new Uint8Array(iv.length + cipher.byteLength); bytes.set(iv); bytes.set(new Uint8Array(cipher), iv.length);
   return btoa(String.fromCharCode(...bytes));
 }
 export async function decryptApiKey(value: string, secret: string): Promise<string> {
   const bytes = Uint8Array.from(atob(value), c => c.charCodeAt(0));
   if (bytes.length < 29) throw new Error("Invalid encrypted API key");
-  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: bytes.slice(0, 12) }, await getKey(secret), bytes.slice(12));
+  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv: copyBytes(bytes.slice(0, 12)) }, await getKey(secret), copyBytes(bytes.slice(12)));
   return decoder.decode(plain);
 }

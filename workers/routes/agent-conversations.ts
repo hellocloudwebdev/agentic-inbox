@@ -20,39 +20,39 @@ async function clearConversation(env:Env,mailboxId:string,id:string){
  if(!response.ok)throw new Error(`Could not clear chat history for conversation ${id}`);
 }
 app.get("/conversations",async c=>{
- const mailboxId=c.req.param("mailboxId"),repo=await repository(c.env);
+ const mailboxId=c.req.param("mailboxId")!,repo=await repository(c.env);
  const conversations=await readConversations(mailboxId,repo);
  return c.json({conversations:conversations.sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt))});
 });
 app.post("/conversations",async c=>{
  const body=z.object({title:z.string().trim().min(1).max(80).optional()}).parse(await c.req.json().catch(()=>({})));
- const mailboxId=c.req.param("mailboxId"),repo=await repository(c.env),conversations=await readConversations(mailboxId,repo);
+ const mailboxId=c.req.param("mailboxId")!,repo=await repository(c.env),conversations=await readConversations(mailboxId,repo);
  const now=new Date().toISOString(),item={id:crypto.randomUUID(),title:body.title||"New chat",createdAt:now,updatedAt:now};
  await repo.setSetting(settingsKey(mailboxId),[item,...conversations]);return c.json(item,201);
 });
 app.put("/conversations/:conversationId",async c=>{
  const body=z.object({title:z.string().trim().min(1).max(80)}).parse(await c.req.json());
- const mailboxId=c.req.param("mailboxId"),id=c.req.param("conversationId"),repo=await repository(c.env);
+ const mailboxId=c.req.param("mailboxId")!,id=c.req.param("conversationId")!,repo=await repository(c.env);
  const conversations=await readConversations(mailboxId,repo);
  if(!conversations.some(item=>item.id===id))return c.json({error:"Conversation not found"},404);
  const now=new Date().toISOString(),updated=conversations.map(item=>item.id===id?{...item,title:body.title,updatedAt:now}:item);
  await repo.setSetting(settingsKey(mailboxId),updated);return c.json(updated.find(item=>item.id===id));
 });
 app.post("/conversations/:conversationId/touch",async c=>{
- const mailboxId=c.req.param("mailboxId"),id=c.req.param("conversationId"),repo=await repository(c.env);
+ const mailboxId=c.req.param("mailboxId")!,id=c.req.param("conversationId")!,repo=await repository(c.env);
  const conversations=await readConversations(mailboxId,repo);
  if(!conversations.some(item=>item.id===id))return c.json({error:"Conversation not found"},404);
  const now=new Date().toISOString();await repo.setSetting(settingsKey(mailboxId),conversations.map(item=>item.id===id?{...item,updatedAt:now}:item));
  return c.json({ok:true});
 });
 app.post("/conversations/:conversationId/clear",async c=>{
- const mailboxId=c.req.param("mailboxId"),id=c.req.param("conversationId"),repo=await repository(c.env);
+ const mailboxId=c.req.param("mailboxId")!,id=c.req.param("conversationId")!,repo=await repository(c.env);
  const conversations=await readConversations(mailboxId,repo);
  if(!conversations.some(item=>item.id===id))return c.json({error:"Conversation not found"},404);
  await clearConversation(c.env,mailboxId,id);return c.json({ok:true});
 });
 app.delete("/conversations/:conversationId",async c=>{
- const mailboxId=c.req.param("mailboxId"),id=c.req.param("conversationId"),repo=await repository(c.env);
+ const mailboxId=c.req.param("mailboxId")!,id=c.req.param("conversationId")!,repo=await repository(c.env);
  const conversations=await readConversations(mailboxId,repo);
  if(!conversations.some(item=>item.id===id))return c.json({error:"Conversation not found"},404);
  await clearConversation(c.env,mailboxId,id);
@@ -60,7 +60,7 @@ app.delete("/conversations/:conversationId",async c=>{
  return c.json({ok:true,retained:id==="inbox"});
 });
 app.delete("/conversations",async c=>{
- const mailboxId=c.req.param("mailboxId"),repo=await repository(c.env),conversations=await readConversations(mailboxId,repo);
+ const mailboxId=c.req.param("mailboxId")!,repo=await repository(c.env),conversations=await readConversations(mailboxId,repo);
  for(const item of conversations)await clearConversation(c.env,mailboxId,item.id);
  await repo.setSetting(settingsKey(mailboxId),[DEFAULT_CONVERSATION]);
  return c.json({ok:true,deleted:conversations.length});

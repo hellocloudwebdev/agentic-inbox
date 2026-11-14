@@ -27,7 +27,7 @@ function configuredTargets(config:LlmConfig|null,role:LlmRole):RoleTarget[]{
 export async function resolveRole(env:Env,role:LlmRole){
  const config=await getLlmConfig(env);
  const targets=configuredTargets(config,role);
- const models=[];
+ const models: Array<Awaited<ReturnType<typeof resolveProviderModel>>> = [];
  let lastError:unknown;
  for(const target of targets){
   try{
@@ -47,5 +47,6 @@ export async function resolveRole(env:Env,role:LlmRole){
  return models.length===1?models[0]:createFallback({models});
 }
 export async function generateForRole(env:Env,role:LlmRole,options:Omit<Parameters<typeof generateText>[0],"model">){
- return generateText({...options,model:await resolveRole(env,role)});
+ const model = await resolveRole(env, role);
+ return generateText({ ...options, model } as Parameters<typeof generateText>[0]);
 }
