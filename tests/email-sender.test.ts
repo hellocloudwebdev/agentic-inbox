@@ -10,7 +10,7 @@ vi.mock("@workermailer/smtp", () => ({
 	WorkerMailer: { connect: connectMock },
 }));
 
-import { sendEmail, SmtpDeliveryError } from "../workers/email-sender";
+import { sendEmail } from "../workers/email-sender";
 
 const smtpEnv = {
 	ZOHO_SMTP_HOST: "smtp.zoho.in",

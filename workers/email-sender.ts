@@ -128,29 +128,29 @@ export async function sendEmail(
 		const sanitizeRecipients = (value: string | string[]) => Array.isArray(value) ? value.map(stripCrlf) : stripCrlf(value);
 		try {
 			await mailer.send({
-			to: sanitizeRecipients(params.to),
-			from: { email: fromEmail, name: fromName },
-			subject: safeSubject,
-			...(params.html ? { html: params.html } : {}),
-			...(params.text ? { text: params.text } : {}),
-			...(params.cc ? { cc: Array.isArray(params.cc) ? params.cc.map(stripCrlf) : stripCrlf(params.cc) } : {}),
-			...(params.bcc ? { bcc: Array.isArray(params.bcc) ? params.bcc.map(stripCrlf) : stripCrlf(params.bcc) } : {}),
-			...(params.replyTo ? { reply: typeof params.replyTo === "string" ? stripCrlf(params.replyTo) : { email: stripCrlf(params.replyTo.email), name: stripCrlf(params.replyTo.name) } } : {}),
-			...(params.headers && Object.keys(params.headers).length > 0
-				? { headers: Object.fromEntries(Object.entries(params.headers).map(([key, value]) => [stripCrlf(key), stripCrlf(value)])) }
-				: {}),
-			...(params.attachments && params.attachments.length > 0
-				? {
-					attachments: params.attachments.map((attachment) => ({
-						filename: stripCrlf(attachment.filename),
-						content: attachment.content,
-						mimeType: attachment.type,
-						inline: attachment.disposition === "inline",
-						...(attachment.contentId ? { cid: attachment.contentId } : {}),
-					})),
-				}
-				: {}),
-			});
+				to: sanitizeRecipients(params.to),
+				from: { email: fromEmail, name: fromName },
+				subject: safeSubject,
+				...(params.html ? { html: params.html } : {}),
+				...(params.text ? { text: params.text } : {}),
+				...(params.cc ? { cc: Array.isArray(params.cc) ? params.cc.map(stripCrlf) : stripCrlf(params.cc) } : {}),
+				...(params.bcc ? { bcc: Array.isArray(params.bcc) ? params.bcc.map(stripCrlf) : stripCrlf(params.bcc) } : {}),
+				...(params.replyTo ? { reply: typeof params.replyTo === "string" ? stripCrlf(params.replyTo) : { email: stripCrlf(params.replyTo.email), name: stripCrlf(params.replyTo.name) } } : {}),
+				...(params.headers && Object.keys(params.headers).length > 0
+					? { headers: Object.fromEntries(Object.entries(params.headers).map(([key, value]) => [stripCrlf(key), stripCrlf(value)])) }
+					: {}),
+				...(params.attachments && params.attachments.length > 0
+					? {
+						attachments: params.attachments.map((attachment) => ({
+							filename: stripCrlf(attachment.filename),
+							content: attachment.content,
+							mimeType: attachment.type,
+							inline: attachment.disposition === "inline",
+							...(attachment.contentId ? { cid: attachment.contentId } : {}),
+						})),
+					}
+					: {}),
+				});
 		} catch (error) {
 			// Once send() begins, a connection loss can happen after Zoho accepts
 			// DATA. Never automatically retry this ambiguous transaction.
