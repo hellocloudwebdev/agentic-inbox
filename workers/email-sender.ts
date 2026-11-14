@@ -11,6 +11,28 @@
 
 import { WorkerMailer } from "@workermailer/smtp";
 
+export type SmtpDeliveryOutcome = "not_sent" | "unknown";
+
+export class SmtpDeliveryError extends Error {
+	constructor(public readonly outcome: SmtpDeliveryOutcome, message: string) {
+		super(message);
+		this.name = "SmtpDeliveryError";
+	}
+}
+
+function isTransientConnectError(error: unknown): boolean {
+	const code = typeof error === "object" && error !== null && "code" in error
+		? String((error as { code?: unknown }).code || "")
+		: "";
+	const message = error instanceof Error ? error.message : String(error);
+	return ["ECONNRESET", "ETIMEDOUT", "EAI_AGAIN", "EPIPE"].includes(code) ||
+		/connection reset|timed out|temporary network error/i.test(message);
+}
+
+function errorMessage(error: unknown): string {
+	return error instanceof Error ? error.message : String(error);
+}
+
 export function stripCrlf(value: string): string {
 	return value.replace(/[\r\n]+/g, " ").trim();
 }
@@ -75,44 +97,74 @@ export async function sendEmail(
 		);
 	}
 
-	const mailer = await WorkerMailer.connect({
+	const connectOptions = {
 		host,
 		port,
 		secure: port === 465,
 		startTls: port === 587,
-		authType: "plain",
+		authType: "plain" as const,
 		credentials: { username, password },
 		socketTimeoutMs: 20_000,
 		responseTimeoutMs: 20_000,
-	});
+	};
+
+	let mailer: Awaited<ReturnType<typeof WorkerMailer.connect>>;
+	for (let attempt = 0; ; attempt += 1) {
+		try {
+			mailer = await WorkerMailer.connect(connectOptions);
+			break;
+		} catch (error) {
+			// No message has been submitted during connection setup, so a single
+			// transient reconnect attempt cannot create a duplicate delivery.
+			if (attempt === 0 && isTransientConnectError(error)) {
+				await new Promise((resolve) => setTimeout(resolve, 200));
+				continue;
+			}
+			throw new SmtpDeliveryError("not_sent", `SMTP connection failed before message submission: ${errorMessage(error)}`);
+		}
+	}
 
 	try {
 		const sanitizeRecipients = (value: string | string[]) => Array.isArray(value) ? value.map(stripCrlf) : stripCrlf(value);
-		await mailer.send({
-			to: sanitizeRecipients(params.to),
-			from: { email: fromEmail, name: fromName },
-			subject: safeSubject,
-			...(params.html ? { html: params.html } : {}),
-			...(params.text ? { text: params.text } : {}),
-			...(params.cc ? { cc: Array.isArray(params.cc) ? params.cc.map(stripCrlf) : stripCrlf(params.cc) } : {}),
-			...(params.bcc ? { bcc: Array.isArray(params.bcc) ? params.bcc.map(stripCrlf) : stripCrlf(params.bcc) } : {}),
-			...(params.replyTo ? { reply: typeof params.replyTo === "string" ? stripCrlf(params.replyTo) : { email: stripCrlf(params.replyTo.email), name: stripCrlf(params.replyTo.name) } } : {}),
-			...(params.headers && Object.keys(params.headers).length > 0
-				? { headers: Object.fromEntries(Object.entries(params.headers).map(([key, value]) => [stripCrlf(key), stripCrlf(value)])) }
-				: {}),
-			...(params.attachments && params.attachments.length > 0
-				? {
-					attachments: params.attachments.map((attachment) => ({
-						filename: stripCrlf(attachment.filename),
-						content: attachment.content,
-						mimeType: attachment.type,
-						inline: attachment.disposition === "inline",
-						...(attachment.contentId ? { cid: attachment.contentId } : {}),
-					})),
-				}
-				: {}),
-		});
+		try {
+			await mailer.send({
+				to: sanitizeRecipients(params.to),
+				from: { email: fromEmail, name: fromName },
+				subject: safeSubject,
+				...(params.html ? { html: params.html } : {}),
+				...(params.text ? { text: params.text } : {}),
+				...(params.cc ? { cc: Array.isArray(params.cc) ? params.cc.map(stripCrlf) : stripCrlf(params.cc) } : {}),
+				...(params.bcc ? { bcc: Array.isArray(params.bcc) ? params.bcc.map(stripCrlf) : stripCrlf(params.bcc) } : {}),
+				...(params.replyTo ? { reply: typeof params.replyTo === "string" ? stripCrlf(params.replyTo) : { email: stripCrlf(params.replyTo.email), name: stripCrlf(params.replyTo.name) } } : {}),
+				...(params.headers && Object.keys(params.headers).length > 0
+					? { headers: Object.fromEntries(Object.entries(params.headers).map(([key, value]) => [stripCrlf(key), stripCrlf(value)])) }
+					: {}),
+				...(params.attachments && params.attachments.length > 0
+					? {
+						attachments: params.attachments.map((attachment) => ({
+							filename: stripCrlf(attachment.filename),
+							content: attachment.content,
+							mimeType: attachment.type,
+							inline: attachment.disposition === "inline",
+							...(attachment.contentId ? { cid: attachment.contentId } : {}),
+						})),
+					}
+					: {}),
+				});
+		} catch (error) {
+			// Once send() begins, a connection loss can happen after Zoho accepts
+			// DATA. Never automatically retry this ambiguous transaction.
+			throw new SmtpDeliveryError(
+				"unknown",
+				`Zoho SMTP delivery outcome is unknown; the message may have been accepted. Check Zoho Sent before retrying. ${errorMessage(error)}`,
+			);
+		}
 	} finally {
-		await mailer.close();
+		try {
+			await mailer.close();
+		} catch (error) {
+			// A cleanup failure after a resolved SMTP send must not mask acceptance.
+			console.warn("SMTP connection cleanup failed:", errorMessage(error));
+		}
 	}
 }

@@ -10,6 +10,10 @@ export async function fetchProviderModels(input: { baseUrl: string; kind: Provid
  const response=await fetch(endpoint,{headers,redirect:"manual"});
  if(!response.ok) throw new Error(`Provider model discovery failed (${response.status})`);
  const body=await response.json() as {data?:Array<{id?:unknown}>;models?:Array<{name?:unknown;id?:unknown}>};
- const ids=(body.data??body.models??[]).map(x=>typeof x.id==="string"?x.id:typeof x.name==="string"?x.name:"").filter(Boolean);
+ const ids=(body.data??body.models??[]).map((x)=>{
+  if ("id" in x && typeof x.id === "string") return x.id;
+  if ("name" in x && typeof x.name === "string") return x.name;
+  return "";
+ }).filter(Boolean);
  return [...new Set(ids)].slice(0,500);
 }

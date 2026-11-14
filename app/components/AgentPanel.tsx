@@ -329,6 +329,20 @@ function AgentChatConnected({
 		useAgentChat({ agent });
 	const isStreaming = status === "streaming" || status === "submitted";
 
+	// The cleanup closes over the stop callback for this conversation. When
+	// agentName changes React runs it before the next effect, aborting the old
+	// stream rather than allowing its late chunks to bleed into the new chat.
+	useEffect(() => {
+		const stopThisConversation = stop;
+		return () => {
+			void stopThisConversation().catch((error) => {
+				console.warn("Could not stop the previous conversation stream:", error);
+			});
+		};
+		// stop is intentionally captured per agentName, not re-bound per render.
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [agentName]);
+
 	useEffect(() => {
 		let cancelled = false;
 		api.listAgentConversations(mailboxId).then(({ conversations: items }) => {

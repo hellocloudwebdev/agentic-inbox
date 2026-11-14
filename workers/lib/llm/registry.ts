@@ -1,3 +1,4 @@
+import type { LanguageModelV3 } from "@ai-sdk/provider";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
@@ -6,7 +7,7 @@ import type { Env } from "../../types";
 import type { LlmProvider } from "./types";
 import { decryptApiKey } from "./crypto";
 import { assertSafeProviderUrl } from "./safe-url";
-export async function resolveProviderModel(env: Env, provider: LlmProvider, modelId: string) {
+export async function resolveProviderModel(env: Env, provider: LlmProvider, modelId: string): Promise<LanguageModelV3> {
  if(!provider.models.includes(modelId)) throw new Error("Selected model is not in the provider's configured model list");
  if(!provider.apiKeyEnc) throw new Error("Provider API key is not configured");
  const apiKey=await decryptApiKey(provider.apiKeyEnc,env.LLM_ENCRYPTION_KEY);
@@ -16,6 +17,6 @@ export async function resolveProviderModel(env: Env, provider: LlmProvider, mode
  if(provider.kind==="openai-chat-completions") return createOpenAI({apiKey,baseURL}).chat(modelId);
  return createOpenAICompatible({name:provider.id,apiKey,baseURL})(modelId);
 }
-export function workersAiModel(env: Env, modelId: string) {
+export function workersAiModel(env: Env, modelId: string): LanguageModelV3 {
  return createWorkersAI({binding:env.AI})(modelId as any);
 }

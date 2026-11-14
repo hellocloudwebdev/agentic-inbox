@@ -22,6 +22,7 @@ import {
 } from "../lib/tools";
 import { Folders, FOLDER_TOOL_DESCRIPTION, MOVE_FOLDER_TOOL_DESCRIPTION } from "../../shared/folders";
 import type { Env } from "../types";
+import { getMcpApiPrincipal, isMailboxAuthorized, MCP_SESSION_KEY_ID_HEADER } from "../lib/mcp-auth";
 import { getNeonDb, ensureNeonSchema } from "../db/neon-client";
 import { MailboxRepository, normalizeMailboxId } from "../db/repositories/mailbox-repository";
 import { getEmailAutomationSettings } from "../lib/email-automation";
@@ -64,7 +65,22 @@ function mcpResult(result: Record<string, unknown>) {
  * `/mcp` endpoint and can list mailboxes, read/search emails,
  * draft replies, send messages, and manage folders.
  */
-export class EmailMCP extends McpAgent<Env> {
+interface McpSessionState { keyId: string; }
+
+export class EmailMCP extends McpAgent<Env, McpSessionState> {
+	initialState: McpSessionState = { keyId: "" };
+
+	// McpAgent sessions are per MCP client. Carry the key id from the Worker
+	// middleware into this session; tool calls re-check revocation in Neon.
+	async onConnect(connection: any, ctx: any): Promise<void> {
+		const keyId = ctx?.request?.headers?.get(MCP_SESSION_KEY_ID_HEADER);
+		if (!keyId || !/^[0-9a-f-]{36}$/i.test(keyId)) {
+			connection.close(1008, "Missing authenticated MCP principal");
+			return;
+		}
+		this.setState({ keyId });
+	}
+
 	server = new McpServer({
 		name: "agentic-inbox",
 		version: "1.0.0",
@@ -90,7 +106,14 @@ export class EmailMCP extends McpAgent<Env> {
 				}
 			};
 
+			const getPrincipal = () => getMcpApiPrincipal(env, this.state?.keyId);
+
 			const verifyMailbox = async (mailboxId: string) => {
+				const principal = await getPrincipal();
+				if (!principal) return mcpError("MCP API key is revoked, invalid, or has no mailbox scope.");
+				if (!isMailboxAuthorized(principal, mailboxId)) {
+					return mcpError(`This MCP API key is not authorized for mailbox "${mailboxId}".`);
+				}
 				try {
 					await ensureNeonSchema(env);
 					const repo = new MailboxRepository(getNeonDb(env));
@@ -110,8 +133,11 @@ export class EmailMCP extends McpAgent<Env> {
 			"List all available mailboxes",
 			{},
 			async () => {
-				const result = await toolListMailboxes(env);
-				return mcpText(result);
+				const principal = await getPrincipal();
+				if (!principal) return mcpError("MCP API key is revoked, invalid, or has no mailbox scope.");
+				const allowed = new Set(principal.mailboxIds);
+				const result = await toolListMailboxes(env) as Array<{ id?: string; email?: string }>;
+				return mcpText(result.filter((mailbox) => allowed.has(normalizeMailboxId(mailbox.id || mailbox.email || ""))));
 			},
 		);
 
