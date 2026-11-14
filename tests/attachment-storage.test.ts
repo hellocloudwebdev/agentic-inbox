@@ -97,6 +97,10 @@ describe("Attachment Storage Service & Chunking", () => {
 			expect(new TextDecoder().decode(u8FromText)).toBe(text);
 		});
 
+		it("decodes data URIs and whitespace-wrapped base64", () => {
+			expect(new TextDecoder().decode(toUint8Array("data:text/plain;base64,SGVs\r\nbG8gV29ybGQ=", true))).toBe("Hello World");
+		});
+
 		it("correctly decodes base64 with all byte values from 0x00 to 0xFF", () => {
 			const allBytes = new Uint8Array(256);
 			for (let i = 0; i < 256; i++) allBytes[i] = i;

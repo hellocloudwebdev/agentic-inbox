@@ -13,6 +13,17 @@ describe("getAllowedClerkUser", () => {
     });
   });
 
+  it("accepts a verified identity from a comma-separated allowlist", () => {
+    expect(getAllowedClerkUser({
+      sub: "user_789",
+      email: "second@example.com",
+      email_verified: true,
+    }, "first@example.com, second@example.com")).toEqual({
+      id: "user_789",
+      email: "second@example.com",
+    });
+  });
+
   it("rejects an unverified allowlisted email", () => {
     expect(getAllowedClerkUser({
       sub: "user_123",

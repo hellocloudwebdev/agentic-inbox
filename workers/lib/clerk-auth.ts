@@ -6,22 +6,27 @@ export interface AuthenticatedClerkUser {
   email: string;
 }
 
+function constantTimeEqual(left: string, right: string): boolean {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
+  }
+  return difference === 0;
+}
+
 export function getAllowedClerkUser(
   payload: Record<string, unknown>,
-  allowedEmail: string,
+  allowedEmails: string,
 ): AuthenticatedClerkUser | null {
   const id = typeof payload.sub === "string" ? payload.sub : "";
   const email = typeof payload.email === "string" ? payload.email.trim().toLowerCase() : "";
+  const allowlist = allowedEmails.split(",").map((value) => value.trim().toLowerCase()).filter(Boolean);
 
-  if (
-    !id ||
-    payload.email_verified !== true ||
-    !email ||
-    email !== allowedEmail.trim().toLowerCase()
-  ) {
+  if (!id || payload.email_verified !== true || !email ||
+      !allowlist.some((allowedEmail) => constantTimeEqual(email, allowedEmail))) {
     return null;
   }
-
   return { id, email };
 }
 

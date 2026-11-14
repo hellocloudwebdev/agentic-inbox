@@ -15,13 +15,25 @@ interface SenderAvatarProps {
   className?: string;
 }
 
-const AVATAR_TONES = [
+export const AVATAR_TONES = [
   "bg-[#fce8e6] text-[#a34a40]",
   "bg-[#e5efff] text-[#365e9d]",
   "bg-[#f6e8fa] text-[#80518f]",
   "bg-[#e5f4ed] text-[#39785b]",
   "bg-[#fff0d9] text-[#946528]",
 ];
+
+export function getAvatarToneIndex(email?: string | null, name?: string | null): number {
+  const seed = (email?.trim() || name?.trim() || "?").toLowerCase();
+  let hash = 0;
+  for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
+  return Math.abs(hash) % AVATAR_TONES.length;
+}
+
+export function getSenderInitial(name?: string | null, email?: string | null): string {
+  const candidate = (name?.trim() || email?.trim() || "?").replace(/^[\"'<]+/, "");
+  return (candidate.charAt(0) || "?").toUpperCase();
+}
 
 function ZohoBrandMark() {
   return (
@@ -86,13 +98,8 @@ export default function SenderAvatar({
   }>({ email: "", sources: [], index: 0 });
 
   const brand = getSenderAvatarBrand(email);
-  const toneIndex =
-    Math.abs((email || name).charCodeAt(0) || 0) % AVATAR_TONES.length;
-  const initial = (
-    name.trim().charAt(0) ||
-    email.trim().charAt(0) ||
-    "?"
-  ).toUpperCase();
+  const toneIndex = getAvatarToneIndex(email, name);
+  const initial = getSenderInitial(name, email);
 
   useEffect(() => {
     let cancelled = false;

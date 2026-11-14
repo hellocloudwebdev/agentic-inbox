@@ -27,6 +27,21 @@ interface EmailIframeProps {
  * - A strict CSP meta tag blocks external resource loads inside the
  *   iframe as a defense-in-depth layer.
  */
+export function sanitizeEmailHtml(rawHtml: string): string {
+	const clean = DOMPurify.sanitize(rawHtml, {
+		USE_PROFILES: { html: true },
+		ADD_TAGS: ["style"],
+		ADD_ATTR: ["target"],
+		FORCE_BODY: true,
+	});
+	return clean.replace(/<style\b[^>]*>([\s\S]*?)<\/style>/gi, (_full, cssContent: string) => {
+		const safeCss = cssContent
+			.replace(/@import\b[^;]+;?/gi, "")
+			.replace(/url\(\s*['"]?\s*(?:https?:|\/\/)[^)]+\)/gi, "none")
+			.replace(/expression\s*\([^)]*\)/gi, "none");
+		return `<style>${safeCss}</style>`;
+	});
+}
 export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 	const iframeRef = useRef<HTMLIFrameElement>(null);
 	const [height, setHeight] = useState(autoSize ? 100 : 0);
@@ -44,7 +59,8 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 				typeof event.data.height === "number" &&
 				event.data.height > 0
 			) {
-				setHeight(event.data.height);
+				const nextHeight = Math.max(120, Math.min(event.data.height, 20_000));
+				setHeight((previous) => Math.abs(previous - nextHeight) >= 2 ? nextHeight : previous);
 			}
 		},
 		[autoSize],
@@ -59,12 +75,7 @@ export default function EmailIframe({ body, autoSize }: EmailIframeProps) {
 		const iframe = iframeRef.current;
 		if (!iframe || !body) return;
 
-		const cleanBody = DOMPurify.sanitize(body, {
-			USE_PROFILES: { html: true },
-			FORBID_TAGS: ["style"],
-			ADD_ATTR: ["target"],
-			FORCE_BODY: true,
-		});
+		const cleanBody = sanitizeEmailHtml(body);
 
 		const padding = autoSize ? "0" : "24px";
 
