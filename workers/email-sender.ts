@@ -87,8 +87,9 @@ export async function sendEmail(
 	});
 
 	try {
+		const sanitizeRecipients = (value: string | string[]) => Array.isArray(value) ? value.map(stripCrlf) : stripCrlf(value);
 		await mailer.send({
-			to: params.to,
+			to: sanitizeRecipients(params.to),
 			from: { email: fromEmail, name: fromName },
 			subject: safeSubject,
 			...(params.html ? { html: params.html } : {}),
