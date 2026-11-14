@@ -11,7 +11,10 @@
 import type { MailboxDO, AttachmentData } from "../durableObject";
 
 export const CHUNK_SIZE = 1024 * 1024; // 1 MiB (1,048,576 bytes)
-export const MAX_ATTACHMENT_BYTES = 15 * 1024 * 1024; // 15 MiB per attachment
+// Zoho's largest standard message limit is 40 MiB. MIME base64 adds ~33%,
+// so keep aggregate raw attachment bytes below that ceiling with header margin.
+export const MAX_ATTACHMENT_BYTES = 28 * 1024 * 1024; // 28 MiB per attachment
+export const MAX_EMAIL_ATTACHMENT_BYTES = 28 * 1024 * 1024; // 28 MiB aggregate
 
 export interface AttachmentInput {
 	content: Uint8Array | ArrayBuffer | string;
@@ -121,11 +124,16 @@ export function prepareAttachments(
 	if (!attachments?.length) return [];
 
 	const results: StoredAttachment[] = [];
+	let totalAttachmentBytes = 0;
 	for (const att of attachments) {
 		const attachmentId = crypto.randomUUID();
 		const safeFilename = sanitizeFilename(att.filename);
 		const isBase64 = att.isBase64 ?? typeof att.content === "string";
 		const bytes = toUint8Array(att.content, isBase64);
+		totalAttachmentBytes += bytes.byteLength;
+		if (totalAttachmentBytes > MAX_EMAIL_ATTACHMENT_BYTES) {
+			throw new RangeError(`Total attachments exceed the ${MAX_EMAIL_ATTACHMENT_BYTES} byte message budget`);
+		}
 		const chunks = chunkBinary(bytes, CHUNK_SIZE);
 
 		results.push({
