@@ -116,6 +116,7 @@ export interface McpApiKeyMetadata {
 	lastUsedAt: string | null;
 	revokedAt: string | null;
 	status: "active" | "revoked";
+	mailboxIds: string[];
 }
 
 // ---------- API client ----------
@@ -130,7 +131,7 @@ const api = {
 
 	// MCP API-key management. The returned secret is shown only at creation/regeneration.
 	listMcpKeys: () => get<{ keys: McpApiKeyMetadata[] }>("/api/v1/mcp/keys"),
-	createMcpKey: (label: string) => post<{ key: string; keyInfo: McpApiKeyMetadata }>("/api/v1/mcp/keys", { label }),
+	createMcpKey: (label: string, mailboxIds: string[]) => post<{ key: string; keyInfo: McpApiKeyMetadata }>("/api/v1/mcp/keys", { label, mailboxIds }),
 	regenerateMcpKey: (id: string) => post<{ key: string; keyInfo: McpApiKeyMetadata }>(`/api/v1/mcp/keys/${encodeURIComponent(id)}/regenerate`),
 	revokeMcpKey: (id: string) => del<void>(`/api/v1/mcp/keys/${encodeURIComponent(id)}`),
 

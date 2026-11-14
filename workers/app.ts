@@ -5,7 +5,7 @@
 import { routeAgentRequest } from "agents";
 import { Hono } from "hono";
 import { authenticateClerkRequest } from "./lib/clerk-auth";
-import { authenticateMcpApiKey } from "./lib/mcp-auth";
+import { authenticateMcpApiKey, MCP_SESSION_KEY_ID_HEADER } from "./lib/mcp-auth";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
 import { EmailMCP } from "./mcp";
@@ -27,6 +27,10 @@ const requestHandler = createRequestHandler(
 	import.meta.env.MODE,
 );
 
+// MCP is authenticated at the Worker boundary; the verified key id is forwarded
+// to the per-client McpAgent session as an internal header.
+const mcpHandler = EmailMCP.serve("/mcp", { binding: "EMAIL_MCP" });
+
 // Main app that wraps the API and adds React Router fallback
 const app = new Hono<{ Bindings: Env }>();
 
@@ -46,7 +50,15 @@ app.use("*", async (c, next) => {
 	if (isPublicSignIn || isPublicAsset) return next();
 
 	const isMcpPath = pathname === "/mcp" || pathname.startsWith("/mcp/");
-	if (isMcpPath && await authenticateMcpApiKey(c.req.raw, c.env)) return next();
+	if (isMcpPath) {
+		const principal = await authenticateMcpApiKey(c.req.raw, c.env);
+		if (!principal) return c.json({ error: "Unauthorized MCP API key." }, 401);
+		const headers = new Headers(c.req.raw.headers);
+		// Never trust a client-supplied internal principal header.
+		headers.delete(MCP_SESSION_KEY_ID_HEADER);
+		headers.set(MCP_SESSION_KEY_ID_HEADER, principal.keyId);
+		return mcpHandler.fetch(new Request(c.req.raw, { headers }), c.env, c.executionCtx as ExecutionContext);
+	}
 
 	if (!c.env.CLERK_JWT_KEY || !c.env.CLERK_ALLOWED_EMAIL) {
 		return c.text("Clerk authentication is not configured. Set CLERK_JWT_KEY and CLERK_ALLOWED_EMAIL.", 503);
@@ -74,15 +86,7 @@ app.use("*", async (c, next) => {
 	return next();
 });
 
-// MCP server endpoint — used by AI coding tools (ProtoAgent, Claude Code, Cursor, etc.)
-// Must be before API routes and React Router catch-all
-const mcpHandler = EmailMCP.serve("/mcp", { binding: "EMAIL_MCP" });
-app.all("/mcp", async (c) => {
-	return mcpHandler.fetch(c.req.raw, c.env, c.executionCtx as ExecutionContext);
-});
-app.all("/mcp/*", async (c) => {
-	return mcpHandler.fetch(c.req.raw, c.env, c.executionCtx as ExecutionContext);
-});
+// MCP requests are handled directly by the authenticated middleware above.
 
 // Mount the API routes
 app.route("/", apiApp);

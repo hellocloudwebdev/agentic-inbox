@@ -14,6 +14,8 @@ export default function McpKeyManagement() {
   const toastRef = useRef(toast);
   toastRef.current = toast;
   const [keys, setKeys] = useState<McpApiKeyMetadata[]>([]);
+  const [mailboxes, setMailboxes] = useState<{ id: string; email: string; name?: string }[]>([]);
+  const [selectedMailboxIds, setSelectedMailboxIds] = useState<string[]>([]);
   const [label, setLabel] = useState("Agentic Inbox MCP");
   const [newSecret, setNewSecret] = useState("");
   const [loading, setLoading] = useState(true);
@@ -23,8 +25,9 @@ export default function McpKeyManagement() {
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await api.listMcpKeys();
+      const [result, mailboxList] = await Promise.all([api.listMcpKeys(), api.listMailboxes()]);
       setKeys(result.keys);
+      setMailboxes(mailboxList.map((mailbox) => ({ id: mailbox.id, email: mailbox.email, name: mailbox.name })));
     } catch (error) {
       toastRef.current.add({ title: "Could not load MCP keys", description: error instanceof Error ? error.message : String(error), variant: "error" });
     } finally {
@@ -35,9 +38,13 @@ export default function McpKeyManagement() {
   useEffect(() => { void refresh(); }, [refresh]);
 
   const generate = async () => {
+    if (selectedMailboxIds.length === 0) {
+      toast.add({ title: "Select at least one mailbox", description: "MCP keys cannot be created without an explicit mailbox scope.", variant: "error" });
+      return;
+    }
     setBusyId("new");
     try {
-      const result = await api.createMcpKey(label.trim() || "MCP client");
+      const result = await api.createMcpKey(label.trim() || "MCP client", selectedMailboxIds);
       setNewSecret(result.key);
       setKeys((old) => [result.keyInfo, ...old]);
       toast.add({ title: "MCP API key generated", description: "Copy it now. The full secret will not be shown again." });
@@ -102,7 +109,17 @@ export default function McpKeyManagement() {
         </div>
         <label className="block text-xs font-medium text-kumo-strong pt-2">Key label</label>
         <input value={label} onChange={(event) => setLabel(event.target.value)} maxLength={80} className="w-full rounded-lg border border-kumo-line bg-kumo-base px-3 py-2 text-sm text-kumo-default" placeholder="For example: Cursor on laptop" />
-        <Button variant="primary" size="sm" onClick={() => void generate()} loading={busyId === "new"} icon={<PlusIcon size={14} />}>Generate API key</Button>
+        <div className="space-y-2 pt-2">
+          <p className="text-xs font-medium text-kumo-strong">Mailbox access</p>
+          {mailboxes.length === 0 ? <p className="text-[11px] text-kumo-subtle">No active mailboxes found.</p> : mailboxes.map((mailbox) => (
+            <label key={mailbox.id} className="flex items-center gap-2 text-xs text-kumo-default">
+              <input type="checkbox" checked={selectedMailboxIds.includes(mailbox.id)} onChange={(event) => setSelectedMailboxIds((old) => event.target.checked ? [...old, mailbox.id] : old.filter((id) => id !== mailbox.id))} />
+              <span>{mailbox.name ? `${mailbox.name} · ${mailbox.email}` : mailbox.email}</span>
+            </label>
+          ))}
+          <p className="text-[11px] text-kumo-subtle">A key can access only the mailboxes selected here. Existing keys without scopes are denied access.</p>
+        </div>
+        <Button variant="primary" size="sm" onClick={() => void generate()} loading={busyId === "new"} disabled={selectedMailboxIds.length === 0 || mailboxes.length === 0} icon={<PlusIcon size={14} />}>Generate scoped API key</Button>
       </div>
 
       {newSecret && (
@@ -132,6 +149,7 @@ export default function McpKeyManagement() {
               </div>
               <p className="mt-1 text-[11px] text-kumo-subtle">Created {formatDate(item.createdAt)}</p>
               <p className="text-[11px] text-kumo-subtle">Last used {formatDate(item.lastUsedAt)}{item.revokedAt ? ` · Revoked ${formatDate(item.revokedAt)}` : ""}</p>
+              <p className="text-[11px] text-kumo-subtle">Scope: {item.mailboxIds?.length ? item.mailboxIds.join(", ") : "No mailbox access — create a new scoped key"}</p>
             </div>
             {item.status === "active" && (
               <div className="flex items-center gap-1">

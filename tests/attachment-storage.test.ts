@@ -98,7 +98,7 @@ describe("Attachment Storage Service & Chunking", () => {
 		});
 
 		it("rejects aggregate attachments above the Zoho-safe message budget", () => {
-		const payload = new Uint8Array(14 * 1024 * 1024);
+		const payload = new Uint8Array(14 * 1024 * 1024 + 1);
 		expect(() => prepareAttachments("email-1", [
 			{ filename: "one.bin", content: payload },
 			{ filename: "two.bin", content: payload },
