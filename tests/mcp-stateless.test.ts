@@ -23,6 +23,8 @@ function createRegressionServer() {
 describe("stateless MCP Streamable HTTP handler", () => {
 	it("connects the official SDK v1.32.2 client and lists tools without an MCP session", async () => {
 		const handler = createMcpHandler(() => createRegressionServer(), { legacy: "stateless" });
+		let responseCount = 0;
+		let receivedSessionId = false;
 		const transport = new StreamableHTTPClientTransport(new URL(endpoint), {
 			requestInit: {
 				headers: {
@@ -31,7 +33,10 @@ describe("stateless MCP Streamable HTTP handler", () => {
 			},
 			fetch: async (input, init) => {
 				const request = input instanceof Request ? new Request(input, init) : new Request(input, init);
-				return handler.fetch(request);
+				const response = await handler.fetch(request);
+				responseCount += 1;
+				if (response.headers.has("mcp-session-id")) receivedSessionId = true;
+				return response;
 			},
 		});
 		const client = new Client(
@@ -42,10 +47,13 @@ describe("stateless MCP Streamable HTTP handler", () => {
 		try {
 			await client.connect(transport);
 			expect(client.getServerVersion()?.name).toBe("agentic-inbox");
+			await client.ping();
 			const listed = await client.listTools();
 			const names = listed.tools.map((tool) => tool.name);
 			expect(names).toEqual(expect.arrayContaining(["list_mailboxes", "search_emails", "send_email"]));
 			expect(names).toHaveLength(3);
+			expect(responseCount).toBeGreaterThanOrEqual(4);
+			expect(receivedSessionId).toBe(false);
 		} finally {
 			await client.close();
 		}
