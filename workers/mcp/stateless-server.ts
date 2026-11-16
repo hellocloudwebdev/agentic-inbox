@@ -120,7 +120,7 @@ const canMcpSend = async (mailboxId: string) => {
 				const result = await toolListMailboxes(env) as Array<{ id?: string; email?: string }>;
 				return mcpText(result.filter((mailbox) => allowed.has(normalizeMailboxId(mailbox.id || mailbox.email || ""))));
 			},
-		);;
+		);
 
 		// ── list_emails ────────────────────────────────────────────
 		server.registerTool(
@@ -151,7 +151,7 @@ const canMcpSend = async (mailboxId: string) => {
 				const result = await toolListEmails(env, mailboxId, { folder, limit, page });
 				return mcpText(result);
 			},
-		);;
+		);
 
 		// ── get_email ──────────────────────────────────────────────
 		server.registerTool(
@@ -175,7 +175,7 @@ const canMcpSend = async (mailboxId: string) => {
 				}
 				return mcpText(result);
 			},
-		);;
+		);
 
 		// ── get_thread ─────────────────────────────────────────────
 		server.registerTool(
@@ -195,7 +195,7 @@ const canMcpSend = async (mailboxId: string) => {
 				const result = await toolGetThread(env, mailboxId, threadId);
 				return mcpText(result);
 			},
-		);;
+		);
 
 		// ── search_emails ──────────────────────────────────────────
 		server.registerTool(
@@ -217,7 +217,7 @@ const canMcpSend = async (mailboxId: string) => {
 				const result = await toolSearchEmails(env, mailboxId, { query, folder });
 				return mcpText(result);
 			},
-		);;
+		);
 
 		// ── draft_reply ────────────────────────────────────────────
 		server.registerTool(
@@ -249,7 +249,7 @@ const canMcpSend = async (mailboxId: string) => {
 				});
 				return mcpResult(result);
 			},
-		);;
+		);
 
 		// ── create_draft ───────────────────────────────────────────
 		server.registerTool(
@@ -297,7 +297,7 @@ const canMcpSend = async (mailboxId: string) => {
 					message: "Draft created in Drafts folder.",
 				});
 			},
-		);;
+		);
 
 		// ── update_draft ───────────────────────────────────────────
 		server.registerTool(
@@ -335,7 +335,7 @@ const canMcpSend = async (mailboxId: string) => {
 				}
 				return mcpText(result);
 			},
-		);;
+		);
 
 		// ── delete_email ───────────────────────────────────────────
 		server.registerTool(
@@ -353,7 +353,7 @@ const canMcpSend = async (mailboxId: string) => {
 				const result = await toolDeleteEmail(env, mailboxId, emailId);
 				return mcpResult(result);
 			},
-		);;
+		);
 
 		// ── send_reply ─────────────────────────────────────────────
 		server.registerTool(
@@ -400,7 +400,7 @@ const canMcpSend = async (mailboxId: string) => {
 				}
 				return mcpText(result);
 			},
-		);;
+		);
 
 		// ── send_email ─────────────────────────────────────────────
 		server.registerTool(
@@ -436,7 +436,7 @@ const canMcpSend = async (mailboxId: string) => {
 				}
 				return mcpText(result);
 			},
-		);;
+		);
 
 		// ── mark_email_read ────────────────────────────────────────
 		server.registerTool(
@@ -455,7 +455,7 @@ const canMcpSend = async (mailboxId: string) => {
 				const result = await toolMarkEmailRead(env, mailboxId, emailId, read);
 				return mcpText(result);
 			},
-		);;
+		);
 
 		// ── move_email ─────────────────────────────────────────────
 		server.registerTool(
@@ -487,7 +487,7 @@ const canMcpSend = async (mailboxId: string) => {
 				}
 				return mcpText(result);
 			},
-		);;
+		);
 
 	return server;
 }
