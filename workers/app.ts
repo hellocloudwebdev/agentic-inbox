@@ -9,6 +9,7 @@ import { authenticateMcpApiKey, MCP_SESSION_KEY_ID_HEADER } from "./lib/mcp-auth
 import { createRequestHandler, RouterContextProvider } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
 import { EmailMCP } from "./mcp";
+import { handleEmailMcpRequest } from "./mcp/stateless-handler";
 import type { Env } from "./types";
 
 export { MailboxDO } from "./durableObject";
@@ -28,8 +29,8 @@ const requestHandler = createRequestHandler(
 );
 
 // MCP is authenticated at the Worker boundary; the verified key id is forwarded
-// to the per-client McpAgent session as an internal header.
-const mcpHandler = EmailMCP.serve("/mcp", { binding: "EMAIL_MCP" });
+// to the stateless per-request MCP server as an internal header.
+const mcpHandler = handleEmailMcpRequest;
 
 // Main app that wraps the API and adds React Router fallback
 const app = new Hono<{ Bindings: Env }>();
@@ -54,7 +55,7 @@ app.use("*", async (c, next) => {
 		// Streamable HTTP clients may send CORS preflight requests without credentials.
 		// The actual initialize/tool requests still require a scoped bearer key.
 		if (c.req.method === "OPTIONS") {
-			return mcpHandler.fetch(c.req.raw, c.env, c.executionCtx as ExecutionContext);
+			return mcpHandler(c.req.raw, c.env, c.executionCtx as ExecutionContext);
 		}
 		const principal = await authenticateMcpApiKey(c.req.raw, c.env);
 		if (!principal) return c.json({ error: "Unauthorized MCP API key." }, 401);
@@ -62,7 +63,7 @@ app.use("*", async (c, next) => {
 		// Never trust a client-supplied internal principal header.
 		headers.delete(MCP_SESSION_KEY_ID_HEADER);
 		headers.set(MCP_SESSION_KEY_ID_HEADER, principal.keyId);
-		return mcpHandler.fetch(new Request(c.req.raw, { headers }), c.env, c.executionCtx as ExecutionContext);
+		return mcpHandler(new Request(c.req.raw, { headers }), c.env, c.executionCtx as ExecutionContext);
 	}
 
 	if (!c.env.CLERK_JWT_KEY || !c.env.CLERK_ALLOWED_EMAIL) {
