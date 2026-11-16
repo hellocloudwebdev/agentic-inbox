@@ -29,7 +29,7 @@ const requestHandler = createRequestHandler(
 );
 
 // MCP is authenticated at the Worker boundary; the verified key id is forwarded
-// to the per-client McpAgent session as an internal header.
+// to the stateless per-request MCP server as an internal header.
 const mcpHandler = handleEmailMcpRequest;
 
 // Main app that wraps the API and adds React Router fallback
