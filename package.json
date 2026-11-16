@@ -41,7 +41,7 @@
 		"@tiptap/extension-underline": "3.20.2",
 		"@tiptap/react": "3.20.2",
 		"@tiptap/starter-kit": "3.20.2",
-		"agents": "^0.7.6",
+		"agents": "0.33.0",
 		"ai": "^6.0.116",
 		"dompurify": "^3.3.3",
 		"drizzle-orm": "^0.45.1",
@@ -55,7 +55,7 @@
 		"react-router": "^7.9.0",
 		"remark-gfm": "^4.0.1",
 		"workers-ai-provider": "^3.1.2",
-		"zod": "^3.25.76",
+		"zod": "^4.6.7",
 		"zustand": "^5.0.12",
 		"@ai-sdk/openai-compatible": "2.0.93",
 		"@ai-sdk/anthropic": "3.0.142",
@@ -66,7 +66,10 @@
 		"@clerk/backend": "^3.27.0",
 		"@clerk/react-router": "^3.7.0",
 		"fflate": "^0.8.3",
-		"yaml": "^2.9.1"
+		"yaml": "^2.9.1",
+		"@modelcontextprotocol/client": "2.4.0",
+		"@modelcontextprotocol/server": "2.4.0",
+		"@modelcontextprotocol/sdk": "1.32.2"
 	},
 	"overrides": {
 		"@cloudflare/kumo": {
