@@ -67,18 +67,24 @@ function mcpResult(result: Record<string, unknown>) {
  */
 interface McpSessionState { keyId: string; }
 
+const MCP_SESSION_STORAGE_KEY = "mcp:authenticated-key-id";
+
 export class EmailMCP extends McpAgent<Env, McpSessionState> {
 	initialState: McpSessionState = { keyId: "" };
 
-	// McpAgent sessions are per MCP client. Carry the key id from the Worker
-	// middleware into this session; tool calls re-check revocation in Neon.
+	// McpAgent sessions are per MCP client. Persist the authenticated key id
+	// directly in this Durable Object instead of calling Agent.setState().
+	// Agent.setState() propagates state through connection.setState(), which
+	// replaces transport connection state and can erase internal requestIds
+	// used to route Streamable HTTP responses back to their open SSE stream.
+	// Tool calls re-check revocation and mailbox scopes in Neon.
 	async onConnect(connection: any, ctx: any): Promise<void> {
 		const keyId = ctx?.request?.headers?.get(MCP_SESSION_KEY_ID_HEADER);
 		if (!keyId || !/^[0-9a-f-]{36}$/i.test(keyId)) {
 			connection.close(1008, "Missing authenticated MCP principal");
 			return;
 		}
-		this.setState({ keyId });
+		await this.ctx.storage.put(MCP_SESSION_STORAGE_KEY, keyId);
 	}
 
 	server = new McpServer({
@@ -106,7 +112,10 @@ export class EmailMCP extends McpAgent<Env, McpSessionState> {
 				}
 			};
 
-			const getPrincipal = () => getMcpApiPrincipal(env, this.state?.keyId);
+			const getPrincipal = async () => {
+				const keyId = await this.ctx.storage.get<string>(MCP_SESSION_STORAGE_KEY);
+				return getMcpApiPrincipal(env, keyId);
+			};
 
 			const verifyMailbox = async (mailboxId: string) => {
 				const principal = await getPrincipal();
