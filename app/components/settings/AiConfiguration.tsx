@@ -16,6 +16,7 @@ import type {
   LlmRoleTarget,
 } from "~/services/api";
 import { importAgentSkillsZip, parseAgentSkillMarkdown } from "~/lib/agent-skills";
+import { PremiumToggle } from "~/components/settings/PremiumToggle";
 
 const emptyConfig: AiSettings["config"] = {
   providers: [],
@@ -513,10 +514,11 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
             <p className="text-[11px] text-slate-600">Fallbacks run in order. Each fallback can use a different provider and model. This shared configuration is used for every assistant task.</p>
           </div>
         </div>
-        <label className="flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={config.fallbackToWorkersAi} onChange={(event) => setConfig((old) => ({ ...old, fallbackToWorkersAi: event.target.checked }))} />
-          Fall back to Workers AI if provider fails
-        </label>
+        <PremiumToggle
+          label="Fall back to Workers AI if provider fails"
+          checked={config.fallbackToWorkersAi}
+          onChange={(checked) => setConfig((old) => ({ ...old, fallbackToWorkersAi: checked }))}
+        />
       </div>
 
       {skills.some((skill) => skill.mode === "always") && (
@@ -533,9 +535,12 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
               {(skill.resources?.length ?? 0) > 0 && <div className="mt-1 text-[10px] text-slate-500">{skill.resources?.length} supporting text file(s) · read on demand</div>}
               </div>
               <div className="flex items-center gap-2">
-                <label className="text-xs">
-                  <input type="checkbox" checked={skill.enabled} onChange={(event) => setSkills((old) => old.map((item) => item.id === skill.id ? { ...item, enabled: event.target.checked } : item))} /> Enabled
-                </label>
+                <PremiumToggle
+                  label="Enabled"
+                  ariaLabel={`Enable ${skill.name}`}
+                  checked={skill.enabled}
+                  onChange={(checked) => setSkills((old) => old.map((item) => item.id === skill.id ? { ...item, enabled: checked } : item))}
+                />
                 <Button size="xs" variant="ghost" onClick={() => {
                   setEditingSkillId(skill.id);
                   setSkillName(skill.name);
@@ -571,9 +576,12 @@ export const AiConfiguration = forwardRef<AiConfigurationHandle>(function AiConf
               {(skill.resources?.length ?? 0) > 0 && <div className="mt-1 text-[10px] text-slate-500">{skill.resources?.length} supporting text file(s) · read on demand</div>}
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-xs">
-                <input type="checkbox" checked={skill.enabled} onChange={(event) => setSkills((old) => old.map((item) => item.id === skill.id ? { ...item, enabled: event.target.checked } : item))} /> Enabled
-              </label>
+              <PremiumToggle
+                  label="Enabled"
+                  ariaLabel={`Enable ${skill.name}`}
+                  checked={skill.enabled}
+                  onChange={(checked) => setSkills((old) => old.map((item) => item.id === skill.id ? { ...item, enabled: checked } : item))}
+                />
               <Button size="xs" variant="ghost" onClick={() => {
                 setEditingSkillId(skill.id);
                 setSkillName(skill.name);

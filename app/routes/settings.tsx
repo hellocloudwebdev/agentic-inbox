@@ -9,6 +9,7 @@ import { useParams } from "react-router";
 import { useMailbox, useUpdateMailbox } from "~/queries/mailboxes";
 import { AiConfiguration, type AiConfigurationHandle } from "~/components/settings/AiConfiguration";
 import McpKeyManagement from "~/components/settings/McpKeyManagement";
+import { PremiumToggle } from "~/components/settings/PremiumToggle";
 
 const PROMPT_PLACEHOLDER = `The built-in email-agent instructions are always active. Add extra rules for this mailbox here. These instructions extend the defaults rather than replacing them.`;
 type AiEmailSettings = {
@@ -30,13 +31,13 @@ function PermissionToggle({ title, description, checked, onChange }: {
   title: string; description: string; checked: boolean; onChange: (value: boolean) => void;
 }) {
   return (
-    <label className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 p-3 cursor-pointer">
+    <div className="flex items-start justify-between gap-4 rounded-lg border border-slate-200 p-3">
       <span className="min-w-0">
         <span className="block text-xs font-medium text-slate-900">{title}</span>
         <span className="mt-1 block text-[11px] text-slate-600">{description}</span>
       </span>
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} className="mt-0.5 h-4 w-4 shrink-0 accent-current" />
-    </label>
+      <PremiumToggle ariaLabel={title} checked={checked} onChange={onChange} />
+    </div>
   );
 }
 
