@@ -15,7 +15,7 @@ function createRegressionServer() {
 		content: [{ type: "text", text: "[]" }],
 	}));
 	server.registerTool("send_email", { description: "Send email", inputSchema: {} }, async () => ({
-		content: [{ type: "text", text: "{\\"status\\":\\"sent\\"}" }],
+		content: [{ type: "text", text: JSON.stringify({ status: "sent" }) }],
 	}));
 	return server;
 }
