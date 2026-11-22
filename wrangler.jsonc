@@ -33,10 +33,6 @@
 			{
 				"name": "EMAIL_AGENT",
 				"class_name": "EmailAgent"
-			},
-			{
-				"name": "EMAIL_MCP",
-				"class_name": "EmailMCP"
 			}
 		]
 	},
@@ -56,6 +52,15 @@
 		{
 			"tag": "v3",
 			"new_sqlite_classes": [
+				"EmailMCP"
+			]
+		},
+		{
+			// EmailMCP was the pre-stateless MCP Durable Object; /mcp is served by
+			// the stateless Streamable HTTP handler only, so the dormant class is
+			// retired to eliminate its duplicate tool registrations.
+			"tag": "v4",
+			"deleted_classes": [
 				"EmailMCP"
 			]
 		}

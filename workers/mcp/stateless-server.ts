@@ -11,6 +11,7 @@ import {
 	toolGetEmail,
 	toolGetThread,
 	toolSearchEmails,
+	toolCountEmails,
 	toolDraftReply,
 	toolDraftEmail,
 	toolUpdateDraft,
@@ -25,7 +26,12 @@ import type { Env } from "../types";
 import { getMcpApiPrincipal, isMailboxAuthorized, MCP_SESSION_KEY_ID_HEADER } from "../lib/mcp-auth";
 import { getNeonDb, ensureNeonSchema } from "../db/neon-client";
 import { MailboxRepository, normalizeMailboxId } from "../db/repositories/mailbox-repository";
+import { getMailboxStub } from "../lib/email-helpers";
 import { getEmailAutomationSettings } from "../lib/email-automation";
+
+type LlmRateLimitStub = {
+	checkLlmRateLimit: () => Promise<string | null>;
+};
 
 /** Wrap a plain result object into MCP content format. */
 function mcpText(result: unknown) {
@@ -66,44 +72,50 @@ function mcpResult(result: Record<string, unknown>) {
  */
 export function createEmailMcpServer(env: Env, requestInfo: Request): McpServer {
 	const keyId = requestInfo.headers.get(MCP_SESSION_KEY_ID_HEADER) ?? undefined;
+	const stubFor = (mailboxId: string) => getMailboxStub(env, mailboxId);
 	const server = new McpServer({
 		name: "agentic-inbox",
 		version: "1.0.0",
 	});
 
-const canMcpSend = async (mailboxId: string) => {
-				try {
-					await ensureNeonSchema(env);
-					const repo = new MailboxRepository(getNeonDb(env));
-					const box = await repo.getMailbox(normalizeMailboxId(mailboxId));
-					const permissions = getEmailAutomationSettings(box?.settings);
-					return permissions;
-				} catch (error) {
-					console.error("Could not load MCP send permissions:", error instanceof Error ? error.message : String(error));
-					return getEmailAutomationSettings(null);
-				}
-			};
+	// One stateless HTTP request carries exactly one tool call, so the
+	// principal can be resolved once per request instead of once per check.
+	const getPrincipal = (() => {
+		let cached: Promise<Awaited<ReturnType<typeof getMcpApiPrincipal>>> | null = null;
+		return () => (cached ??= getMcpApiPrincipal(env, keyId));
+	})();
 
-			const getPrincipal = async () => getMcpApiPrincipal(env, keyId);
+	/**
+	 * Verify the API principal and the mailbox in a single pass, returning
+	 * either an MCP error response or the mailbox record. Returning the
+	 * record lets send tools read automation permissions without a second
+	 * Neon mailbox lookup.
+	 */
+	const requireMailbox = async (mailboxId: string) => {
+		const principal = await getPrincipal();
+		if (!principal) return { error: mcpError("MCP API key is revoked, invalid, or has no mailbox scope.") };
+		if (!isMailboxAuthorized(principal, mailboxId)) {
+			return { error: mcpError(`This MCP API key is not authorized for mailbox "${mailboxId}".`) };
+		}
+		try {
+			await ensureNeonSchema(env);
+			const repo = new MailboxRepository(getNeonDb(env));
+			const box = await repo.getMailbox(normalizeMailboxId(mailboxId));
+			if (!box) {
+				return { error: mcpError(`Mailbox "${mailboxId}" not found. Use list_mailboxes to see available mailboxes.`) };
+			}
+			return { box };
+		} catch (err: any) {
+			return { error: mcpError(`Database error verifying mailbox "${mailboxId}": ${err?.message || String(err)}`) };
+		}
+	};
 
-			const verifyMailbox = async (mailboxId: string) => {
-				const principal = await getPrincipal();
-				if (!principal) return mcpError("MCP API key is revoked, invalid, or has no mailbox scope.");
-				if (!isMailboxAuthorized(principal, mailboxId)) {
-					return mcpError(`This MCP API key is not authorized for mailbox "${mailboxId}".`);
-				}
-				try {
-					await ensureNeonSchema(env);
-					const repo = new MailboxRepository(getNeonDb(env));
-					const box = await repo.getMailbox(normalizeMailboxId(mailboxId));
-					if (!box) {
-						return mcpError(`Mailbox "${mailboxId}" not found. Use list_mailboxes to see available mailboxes.`);
-					}
-					return null;
-				} catch (err: any) {
-					return mcpError(`Database error verifying mailbox "${mailboxId}": ${err?.message || String(err)}`);
-				}
-			};
+	/** Reject LLM-backed draft operations past the per-mailbox hourly limit. */
+	const requireDraftRateLimit = async (mailboxId: string) => {
+		const limitError = await (stubFor(mailboxId) as unknown as LlmRateLimitStub).checkLlmRateLimit();
+		if (limitError) return mcpError(limitError);
+		return null;
+	};
 
 			
 // ── list_mailboxes ─────────────────────────────────────────
@@ -146,8 +158,8 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, folder, limit, page }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
 				const result = await toolListEmails(env, mailboxId, { folder, limit, page });
 				return mcpText(result);
 			},
@@ -164,8 +176,8 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, emailId }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
 				const result = await toolGetEmail(env, mailboxId, emailId);
 				if ("error" in result) {
 					return {
@@ -190,8 +202,8 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, threadId }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
 				const result = await toolGetThread(env, mailboxId, threadId);
 				return mcpText(result);
 			},
@@ -209,12 +221,45 @@ const canMcpSend = async (mailboxId: string) => {
 					.string()
 					.optional()
 					.describe("Optional folder to restrict search to"),
+				limit: z
+					.number()
+					.optional()
+					.describe("Maximum number of results per page (default 25, max 100)"),
+				page: z
+					.number()
+					.optional()
+					.describe("Page number for pagination (default 1). Use count_emails for totals."),
 			},
 			},
-			async ({ mailboxId, query, folder }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
-				const result = await toolSearchEmails(env, mailboxId, { query, folder });
+			async ({ mailboxId, query, folder, limit, page }) => {
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
+				const result = await toolSearchEmails(env, mailboxId, { query, folder, limit, page });
+				return mcpText(result);
+			},
+		);
+
+		// ── count_emails ───────────────────────────────────────────
+		server.registerTool(
+			"count_emails",
+			{
+				description: "Count emails in a folder, or matching a search query when one is given. Use to plan pagination with list_emails/search_emails.",
+				inputSchema: {
+				mailboxId: z.string().describe("The mailbox email address"),
+				folder: z
+					.string()
+					.optional()
+					.describe("Optional folder to restrict the count to"),
+				query: z
+					.string()
+					.optional()
+					.describe("Optional search query; when given, counts matches instead of folder contents"),
+			},
+			},
+			async ({ mailboxId, folder, query }) => {
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
+				const result = await toolCountEmails(env, mailboxId, { folder, query });
 				return mcpText(result);
 			},
 		);
@@ -237,8 +282,10 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, originalEmailId, to, subject, bodyHtml }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
+				const rateLimited = await requireDraftRateLimit(mailboxId);
+				if (rateLimited) return rateLimited;
 				const result = await toolDraftReply(env, mailboxId, {
 					originalEmailId,
 					to,
@@ -275,8 +322,10 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, to, subject, bodyHtml, in_reply_to, thread_id }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
+				const rateLimited = await requireDraftRateLimit(mailboxId);
+				if (rateLimited) return rateLimited;
 				const result = await toolDraftEmail(env, mailboxId, {
 					to: to || "",
 					subject,
@@ -316,8 +365,10 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, draftId, to, subject, bodyHtml }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
+				const rateLimited = await requireDraftRateLimit(mailboxId);
+				if (rateLimited) return rateLimited;
 				const result = await toolUpdateDraft(env, mailboxId, {
 					draftId,
 					to,
@@ -348,8 +399,8 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, emailId }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
 				const result = await toolDeleteEmail(env, mailboxId, emailId);
 				return mcpResult(result);
 			},
@@ -371,9 +422,9 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, originalEmailId, to, subject, bodyHtml }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
-				if (!(await canMcpSend(mailboxId)).allowMcpSendReplies) {
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
+				if (!getEmailAutomationSettings(gate.box?.settings).allowMcpSendReplies) {
 					return mcpError("MCP replies are disabled in Settings. Enable the MCP reply permission before using send_reply.");
 				}
 				const result = await toolSendReply(env, mailboxId, {
@@ -415,9 +466,9 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, to, subject, bodyHtml }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
-				if (!(await canMcpSend(mailboxId)).allowMcpSendNewEmails) {
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
+				if (!getEmailAutomationSettings(gate.box?.settings).allowMcpSendNewEmails) {
 					return mcpError("MCP new-email sending is disabled in Settings. Enable the MCP new-email permission before using send_email.");
 				}
 				const result = await toolSendEmail(env, mailboxId, {
@@ -450,8 +501,8 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, emailId, read }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
 				const result = await toolMarkEmailRead(env, mailboxId, emailId, read);
 				return mcpResult(result);
 			},
@@ -471,8 +522,8 @@ const canMcpSend = async (mailboxId: string) => {
 			},
 			},
 			async ({ mailboxId, emailId, folderId }) => {
-				const denied = await verifyMailbox(mailboxId);
-				if (denied) return denied;
+				const gate = await requireMailbox(mailboxId);
+				if (gate.error) return gate.error;
 				const result = await toolMoveEmail(env, mailboxId, emailId, folderId);
 				return mcpResult(result);
 			},

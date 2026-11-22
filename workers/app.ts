@@ -8,13 +8,11 @@ import { authenticateClerkRequest } from "./lib/clerk-auth";
 import { authenticateMcpApiKey, MCP_SESSION_KEY_ID_HEADER } from "./lib/mcp-auth";
 import { createRequestHandler, RouterContextProvider } from "react-router";
 import { app as apiApp, receiveEmail } from "./index";
-import { EmailMCP } from "./mcp";
 import { handleEmailMcpRequest } from "./mcp/stateless-handler";
 import type { Env } from "./types";
 
 export { MailboxDO } from "./durableObject";
 export { EmailAgent } from "./agent";
-export { EmailMCP } from "./mcp";
 
 type ClerkWorkerGlobals = typeof globalThis & {
 	CLERK_SECRET_KEY?: string;
@@ -76,8 +74,6 @@ app.use("*", async (c, next) => {
 		const isApiOrAgent =
 			pathname.startsWith("/api/") ||
 			pathname.startsWith("/agents/") ||
-			pathname === "/mcp" ||
-			pathname.startsWith("/mcp/") ||
 			c.req.header("Upgrade")?.toLowerCase() === "websocket";
 
 		if (isApiOrAgent) {

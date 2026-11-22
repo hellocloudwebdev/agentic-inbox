@@ -18,6 +18,8 @@ const mockStub = {
 	updateEmail: vi.fn(),
 	deleteEmail: vi.fn(),
 	moveEmail: vi.fn(),
+	countEmails: vi.fn(),
+	countSearchResults: vi.fn(),
 };
 
 vi.mock("../workers/lib/email-helpers", () => ({
@@ -46,6 +48,7 @@ const { generateForRole } = await import("../workers/lib/llm/run");
 const mockGenerateForRole = vi.mocked(generateForRole);
 
 const {
+	toolCountEmails,
 	toolDraftReply,
 	toolListEmails,
 	toolMarkEmailRead,
@@ -185,6 +188,37 @@ describe("list and search payload trimming", () => {
 			Record<string, unknown>
 		>;
 		expect(result).toEqual([{ id: "e1", subject: "Hit" }]);
+	});
+
+	it("passes pagination to search_emails", async () => {
+		mockStub.searchEmails.mockResolvedValue([]);
+		await toolSearchEmails(env, mailboxId, { query: "hit", folder: "inbox", limit: 10, page: 2 });
+		expect(mockStub.searchEmails).toHaveBeenCalledWith({
+			query: "hit",
+			folder: "inbox",
+			limit: 10,
+			page: 2,
+		});
+	});
+});
+
+// ── count_emails ──────────────────────────────────────────────────────
+
+describe("toolCountEmails", () => {
+	it("counts search matches when a query is given", async () => {
+		mockStub.countSearchResults.mockResolvedValue(7);
+		await expect(
+			toolCountEmails(env, mailboxId, { query: "hit", folder: "inbox" }),
+		).resolves.toEqual({ total: 7 });
+		expect(mockStub.countEmails).not.toHaveBeenCalled();
+	});
+
+	it("counts folder contents without a query", async () => {
+		mockStub.countEmails.mockResolvedValue(42);
+		await expect(toolCountEmails(env, mailboxId, { folder: "inbox" })).resolves.toEqual({
+			total: 42,
+		});
+		expect(mockStub.countSearchResults).not.toHaveBeenCalled();
 	});
 });
 

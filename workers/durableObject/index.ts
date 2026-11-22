@@ -1076,6 +1076,35 @@ export class MailboxDO extends DurableObject<Env> {
 		return null;
 	}
 
+	/**
+	 * Hourly rate limit for LLM-backed operations (MCP draft tools). Unlike
+	 * checkSendRateLimit, this cannot count database rows — update_draft no
+	 * longer creates rows — so it uses a per-hour storage bucket counter.
+	 * Returns null when under the limit, or an error message if exceeded.
+	 */
+	async checkLlmRateLimit(): Promise<string | null> {
+		const MAX_LLM_OPS_PER_HOUR = 30;
+		const bucket = Math.floor(Date.now() / 3_600_000);
+		const key = `llm_rate_limit:${bucket}`;
+
+		const count = (await this.ctx.storage.get<number>(key)) ?? 0;
+		if (count >= MAX_LLM_OPS_PER_HOUR) {
+			return `Rate limit exceeded: max ${MAX_LLM_OPS_PER_HOUR} draft operations per hour per mailbox`;
+		}
+		await this.ctx.storage.put(key, count + 1);
+
+		// Opportunistic cleanup: drop buckets older than two hours.
+		const stale = await this.ctx.storage.list({
+			prefix: "llm_rate_limit:",
+			end: `llm_rate_limit:${bucket - 2}`,
+		});
+		if (stale.size > 0) {
+			await this.ctx.storage.delete([...stale.keys()]);
+		}
+
+		return null;
+	}
+
 	// ── Email creation (Drizzle) ───────────────────────────────────
 
 	async createEmail(

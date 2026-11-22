@@ -424,10 +424,29 @@ async function streamToArrayBuffer(stream: ReadableStream, streamSize: number) {
 }
 
 async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env: Env, ctx: ExecutionContext) {
-	const rawEmail = await streamToArrayBuffer(event.raw, event.rawSize);
-	const parsedEmail = await new PostalMime().parse(rawEmail);
+	// Deterministic failures below (unparseable MIME, no recipient, oversized
+	// payload) are logged and dropped: rethrowing would only trigger Cloudflare
+	// retry deliveries that fail identically and eventually bounce the message.
+	// Only unexpected/transient storage errors propagate for a redelivery retry.
+	const MAX_RAW_EMAIL_BYTES = 25 * 1024 * 1024; // matches Cloudflare's email size cap
+	if (event.rawSize > MAX_RAW_EMAIL_BYTES) {
+		console.error(`Dropping email: raw payload ${event.rawSize} bytes exceeds the ${MAX_RAW_EMAIL_BYTES}-byte guard.`);
+		return;
+	}
 
-	if (!parsedEmail.to?.length || !parsedEmail.to[0].address) throw new Error("received email with empty to");
+	const rawEmail = await streamToArrayBuffer(event.raw, event.rawSize);
+	let parsedEmail;
+	try {
+		parsedEmail = await new PostalMime().parse(rawEmail);
+	} catch (e) {
+		console.error("Dropping email: unparseable MIME payload:", (e as Error).message);
+		return;
+	}
+
+	if (!parsedEmail.to?.length || !parsedEmail.to[0].address) {
+		console.error("Dropping email: no parseable To recipient.");
+		return;
+	}
 
 	const allowedAddresses = ((env.EMAIL_ADDRESSES ?? []) as string[]).map((a) => a.toLowerCase());
 	const allRecipients = parsedEmail.to.map((t) => t.address?.toLowerCase()).filter(Boolean) as string[];
@@ -439,7 +458,10 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 		mailboxId = allRecipients.find((addr) => allowedAddresses.includes(addr));
 		if (!mailboxId) { console.log(`Ignoring email: no recipient matches EMAIL_ADDRESSES.`); return; }
 	} else { mailboxId = allRecipients[0]; }
-	if (!mailboxId) throw new Error("received email with no valid recipient address");
+	if (!mailboxId) {
+		console.error("Dropping email: no valid recipient address matched a mailbox.");
+		return;
+	}
 
 		const messageId = crypto.randomUUID();
 		const normalizedMailboxId = normalizeMailboxId(mailboxId);
@@ -475,11 +497,21 @@ async function receiveEmail(event: { raw: ReadableStream; rawSize: number }, env
 
 	const originalMessageId = parsedEmail.messageId ? extractMsgId(parsedEmail.messageId) : null;
 
+	// Prefer the email's own Date header so delayed deliveries sort correctly;
+	// clamp to receive time when the header is missing or claims a future date.
+	const receivedAt = new Date();
+	const headerDate = parsedEmail.date instanceof Date && !Number.isNaN(parsedEmail.date.getTime())
+		? parsedEmail.date
+		: null;
+	const emailDate = headerDate && headerDate.getTime() <= receivedAt.getTime() + 5 * 60_000
+		? headerDate
+		: receivedAt;
+
 	await stub.createEmail(Folders.INBOX, {
 		id: messageId, subject: parsedEmail.subject || "",
 		sender: (parsedEmail.from?.address || "").toLowerCase(), recipient: allRecipients.join(", "),
 		cc: ccRecipients.join(", ") || null, bcc: bccRecipients.join(", ") || null,
-		date: new Date().toISOString(), // uses receive time, not the email's Date header
+		date: emailDate.toISOString(),
 		body: parsedEmail.html || parsedEmail.text || "",
 		in_reply_to: inReplyTo, email_references: emailReferences.length > 0 ? JSON.stringify(emailReferences) : null,
 		thread_id: threadId, message_id: originalMessageId, raw_headers: JSON.stringify(parsedEmail.headers),

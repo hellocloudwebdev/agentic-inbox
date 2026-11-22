@@ -36,6 +36,8 @@ type MailboxSearchStub = {
 	searchEmails: (options: {
 		query: string;
 		folder?: string;
+		page?: number;
+		limit?: number;
 	}) => Promise<unknown>;
 };
 
@@ -108,14 +110,36 @@ export async function toolGetThread(
 export async function toolSearchEmails(
 	env: Env,
 	mailboxId: string,
-	params: { query: string; folder?: string },
+	params: { query: string; folder?: string; page?: number; limit?: number },
 ) {
 	const stub = getMailboxStub(env, mailboxId);
 	const result = (await (stub as unknown as MailboxSearchStub).searchEmails({
 		query: params.query,
 		folder: params.folder,
+		page: params.page,
+		limit: params.limit,
 	})) as Array<{ raw_headers?: unknown }>;
 	return omitRawHeaders(result);
+}
+
+// ── count_emails ───────────────────────────────────────────────────
+
+/**
+ * Count emails in a folder, or matching a search query when one is given.
+ * Lets MCP callers plan pagination for list_emails/search_emails without
+ * fetching rows.
+ */
+export async function toolCountEmails(
+	env: Env,
+	mailboxId: string,
+	params: { folder?: string; query?: string },
+) {
+	const stub = getMailboxStub(env, mailboxId);
+	const total = params.query
+		? await (stub as unknown as { countSearchResults: (options: { query: string; folder?: string }) => Promise<number> })
+			.countSearchResults({ query: params.query, folder: params.folder })
+		: await stub.countEmails({ folder: params.folder });
+	return { total };
 }
 
 // ── draft_reply ────────────────────────────────────────────────────
