@@ -105,12 +105,75 @@ function splitQuotedBlock(html: string): { reply: string; quoted: string } {
 	return { reply: html, quoted: "" };
 }
 
+export interface VerifyDraftOptions {
+	/**
+	 * Maximum time to wait for the verifier model before giving up.
+	 * Without this, a slow or wedged model hangs the caller until the
+	 * client disconnects (e.g. MCP draft_reply dropping the request).
+	 */
+	timeoutMs?: number;
+	/**
+	 * When verification fails (model error, timeout, or empty output),
+	 * return the original body instead of "". Draft tools should set this:
+	 * a draft is reviewed by a human before sending, and send_* re-verifies,
+	 * so a verifier outage must not block saving drafts.
+	 */
+	fallbackToOriginalOnFailure?: boolean;
+}
+
+const DEFAULT_VERIFY_TIMEOUT_MS = 20_000;
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+	return new Promise<T>((resolve, reject) => {
+		const timer = setTimeout(
+			() => reject(new Error(`Verifier model timed out after ${timeoutMs}ms`)),
+			timeoutMs,
+		);
+		promise.then(
+			(value) => {
+				clearTimeout(timer);
+				resolve(value);
+			},
+			(error) => {
+				clearTimeout(timer);
+				reject(error);
+			},
+		);
+	});
+}
+
 /**
  * Verify and clean a draft email body using AI.
- * Falls back to returning the original body if the AI call fails.
+ * On failure returns "" (strict) or the original body when
+ * `fallbackToOriginalOnFailure` is set.
  */
-export async function verifyDraft(env: Env, body: string): Promise<string> {
-	if (!body || !body.trim()) return body;
+export async function verifyDraft(
+	env: Env,
+	body: string,
+	options: VerifyDraftOptions = {},
+): Promise<string> {
+	return (await verifyDraftDetailed(env, body, options)).body;
+}
+
+export interface DraftVerificationResult {
+	/** The verified body, the original body (fallback), or "" on strict failure. */
+	body: string;
+	/** False when the verifier failed (error, timeout, empty output) and fallback was applied. */
+	verified: boolean;
+}
+
+/**
+ * Verify and clean a draft email body using AI, reporting whether
+ * verification actually succeeded. Callers that need to distinguish
+ * "verifier kept the text as-is" from "verifier failed, fell back"
+ * use this; `verifyDraft` is the plain-string convenience wrapper.
+ */
+export async function verifyDraftDetailed(
+	env: Env,
+	body: string,
+	options: VerifyDraftOptions = {},
+): Promise<DraftVerificationResult> {
+	if (!body || !body.trim()) return { body, verified: true };
 
 	// Separate the quoted reply block so the AI only reviews the user's text
 	const isHtml = /<[a-z][\s\S]*>/i.test(body);
@@ -122,23 +185,28 @@ export async function verifyDraft(env: Env, body: string): Promise<string> {
 	const replyText = isHtml ? stripHtmlToText(replyHtml) : replyHtml;
 
 	// Skip very short replies — nothing to verify
-	if (replyText.trim().length < 20) return body;
+	if (replyText.trim().length < 20) return { body, verified: true };
 
 	try {
-		const response = await generateForRole(env,"verifier",{
-			system: VERIFIER_PROMPT,
-			prompt: replyText,
-			maxOutputTokens: 4096,
-			temperature: 0,
-		});
+		const response = await withTimeout(
+			generateForRole(env, "verifier", {
+				system: VERIFIER_PROMPT,
+				prompt: replyText,
+				maxOutputTokens: 4096,
+				temperature: 0,
+			}),
+			options.timeoutMs ?? DEFAULT_VERIFY_TIMEOUT_MS,
+		);
 		const cleaned = response.text;
-		if (!cleaned || !cleaned.trim()) return "";
+		if (!cleaned || !cleaned.trim()) {
+			throw new Error("Verifier model returned empty output");
+		}
 
 		const cleanedTrimmed = cleaned.trim();
 
 		// If the AI returned something substantially similar, keep original formatting
 		if (normalizeWhitespace(cleanedTrimmed) === normalizeWhitespace(replyText)) {
-			return body;
+			return { body, verified: true };
 		}
 
 		// Safety check: if the AI removed more than 50% of the content,
@@ -150,21 +218,26 @@ export async function verifyDraft(env: Env, body: string): Promise<string> {
 				"Draft verifier removed >50% of content, falling back to original.",
 				`Original: ${replyText.trim().length} chars, Cleaned: ${cleanedTrimmed.length} chars`,
 			);
-			return body;
+			return { body, verified: true };
 		}
 
 		// The AI cleaned something — rebuild in the original format
 		if (isHtml) {
-			return `${textToHtml(cleanedTrimmed)}${quotedBlock}`;
+			return { body: `${textToHtml(cleanedTrimmed)}${quotedBlock}`, verified: true };
 		}
 
 		// Plain text: reattach quoted block if any
-		return quotedBlock
-			? `${cleanedTrimmed}\n\n${quotedBlock}`
-			: cleanedTrimmed;
+		return {
+			body: quotedBlock ? `${cleanedTrimmed}\n\n${quotedBlock}` : cleanedTrimmed,
+			verified: true,
+		};
 	} catch (e) {
-				console.error("AI failed — returns empty body, callers may save blank draft:", (e as Error).message);
-		return "";
+		if (options.fallbackToOriginalOnFailure) {
+			console.error("Draft verifier failed — saving draft with unverified body:", (e as Error).message);
+			return { body, verified: false };
+		}
+		console.error("AI failed — returns empty body, callers may save blank draft:", (e as Error).message);
+		return { body: "", verified: false };
 	}
 }
 

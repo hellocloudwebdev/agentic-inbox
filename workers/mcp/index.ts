@@ -459,7 +459,7 @@ export class EmailMCP extends McpAgent<Env, McpSessionState> {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolMarkEmailRead(env, mailboxId, emailId, read);
-				return mcpText(result);
+				return mcpResult(result);
 			},
 		);
 
@@ -478,18 +478,7 @@ export class EmailMCP extends McpAgent<Env, McpSessionState> {
 				const denied = await verifyMailbox(mailboxId);
 				if (denied) return denied;
 				const result = await toolMoveEmail(env, mailboxId, emailId, folderId);
-				if ("error" in result) {
-					return {
-						content: [
-							{
-								type: "text" as const,
-								text: JSON.stringify({ error: "Failed to move email" }),
-							},
-						],
-						isError: true,
-					};
-				}
-				return mcpText(result);
+				return mcpResult(result);
 			},
 		);
 	}

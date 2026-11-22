@@ -508,14 +508,41 @@ export class MailboxDO extends DurableObject<Env> {
 
 	async updateEmail(
 		id: string,
-		{ read, starred }: { read?: boolean; starred?: boolean },
+		{
+			read,
+			starred,
+			subject,
+			body,
+			recipient,
+		}: {
+			read?: boolean;
+			starred?: boolean;
+			subject?: string;
+			body?: string;
+			recipient?: string;
+		},
 	) {
-		const data: { read?: number; starred?: number } = {};
+		const data: {
+			read?: number;
+			starred?: number;
+			subject?: string;
+			body?: string;
+			recipient?: string;
+		} = {};
 		if (read !== undefined) {
 			data.read = read ? 1 : 0;
 		}
 		if (starred !== undefined) {
 			data.starred = starred ? 1 : 0;
+		}
+		if (subject !== undefined) {
+			data.subject = subject;
+		}
+		if (body !== undefined) {
+			data.body = body;
+		}
+		if (recipient !== undefined) {
+			data.recipient = recipient;
 		}
 
 		if (Object.keys(data).length === 0) {
@@ -862,6 +889,16 @@ export class MailboxDO extends DurableObject<Env> {
 			.get();
 
 		if (!folder) return false;
+
+		// Fail when the email does not exist; otherwise the UPDATE matches
+		// zero rows and this returns true (silent no-op).
+		const email = this.db
+			.select({ id: schema.emails.id })
+			.from(schema.emails)
+			.where(eq(schema.emails.id, id))
+			.get();
+
+		if (!email) return false;
 
 		this.db
 			.update(schema.emails)

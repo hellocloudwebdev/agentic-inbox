@@ -26,7 +26,7 @@ import {
 	buildReferencesChain,
 	buildThreadingHeaders,
 } from "./email-helpers";
-import { verifyDraft } from "./ai";
+import { verifyDraft, verifyDraftDetailed } from "./ai";
 import { sendEmail, SmtpDeliveryError } from "../email-sender";
 import { Folders } from "../../shared/folders";
 import type { Env } from "../types";
@@ -51,19 +51,32 @@ export async function toolListMailboxes(env: Env) {
 
 // ── list_emails ────────────────────────────────────────────────────
 
+/**
+ * Remove raw_headers from list/search results. Full header blocks (ARC/DKIM
+ * chains) are several KB per email and are never needed for listing —
+ * callers that need them use get_email.
+ */
+function omitRawHeaders<T extends { raw_headers?: unknown }>(emails: T[]): Omit<T, "raw_headers">[] {
+	return emails.map((email) => {
+		const { raw_headers: _rawHeaders, ...rest } = email;
+		return rest;
+	});
+}
+
 export async function toolListEmails(
 	env: Env,
 	mailboxId: string,
 	params: { folder: string; limit: number; page: number },
 ) {
 	const stub = getMailboxStub(env, mailboxId);
-	return stub.getEmails({
+	const result = await stub.getEmails({
 		folder: params.folder,
 		limit: params.limit,
 		page: params.page,
 		sortColumn: "date",
 		sortDirection: "DESC",
 	});
+	return omitRawHeaders(result);
 }
 
 // ── get_email ──────────────────────────────────────────────────────
@@ -98,10 +111,11 @@ export async function toolSearchEmails(
 	params: { query: string; folder?: string },
 ) {
 	const stub = getMailboxStub(env, mailboxId);
-	return (stub as unknown as MailboxSearchStub).searchEmails({
+	const result = (await (stub as unknown as MailboxSearchStub).searchEmails({
 		query: params.query,
 		folder: params.folder,
-	});
+	})) as Array<{ raw_headers?: unknown }>;
+	return omitRawHeaders(result);
 }
 
 // ── draft_reply ────────────────────────────────────────────────────
@@ -128,19 +142,21 @@ export async function toolDraftReply(
 		runVerifyDraft?: boolean;
 	},
 ): Promise<
-	| { status: "draft_saved"; draftId: string; message: string; draft: Record<string, string> }
+	| { status: "draft_saved"; draftId: string; message: string; warning?: string; draft: Record<string, string> }
 	| { error: string }
 > {
 	const stub = getMailboxStub(env, mailboxId);
 
-	// Verify/sanitize if requested
+	// Verify/sanitize if requested. Drafts are human-reviewed before sending
+	// and send_* re-verifies, so a verifier outage must not block saving.
 	let processedBody = params.body.trim();
+	let verifierWarning: string | undefined;
 	if (params.runVerifyDraft) {
-		const sanitized = await verifyDraft(env, processedBody);
-		if (!sanitized) {
-			return { error: "Draft verification failed — body could not be verified. Please try again." };
+		const verification = await verifyDraftDetailed(env, processedBody, { fallbackToOriginalOnFailure: true });
+		processedBody = verification.body;
+		if (!verification.verified) {
+			verifierWarning = "Draft body could not be AI-verified and was saved unverified. It will be verified again if sent.";
 		}
-		processedBody = sanitized;
 	}
 
 	// Convert plain text to HTML if needed
@@ -184,6 +200,7 @@ export async function toolDraftReply(
 		status: "draft_saved",
 		draftId,
 		message: "Draft saved to Drafts folder. Review it and confirm to send.",
+		...(verifierWarning ? { warning: verifierWarning } : {}),
 		draft: {
 			originalEmailId: params.originalEmailId,
 			to: params.to,
@@ -210,18 +227,21 @@ export async function toolDraftEmail(
 		thread_id?: string;
 	},
 ): Promise<
-	| { status: string; draftId: string; threadId?: string; message: string; draft?: Record<string, string> }
+	| { status: string; draftId: string; threadId?: string; message: string; warning?: string; draft?: Record<string, string> }
 	| { error: string }
 > {
 	const stub = getMailboxStub(env, mailboxId);
 
 	let processedBody = params.body.trim();
+	let verifierWarning: string | undefined;
 	if (params.runVerifyDraft) {
-		const sanitized = await verifyDraft(env, processedBody);
-		if (!sanitized) {
-			return { error: "Draft verification failed — body could not be verified. Please try again." };
+		// Drafts are human-reviewed before sending and send_* re-verifies,
+		// so a verifier outage must not block saving.
+		const verification = await verifyDraftDetailed(env, processedBody, { fallbackToOriginalOnFailure: true });
+		processedBody = verification.body;
+		if (!verification.verified) {
+			verifierWarning = "Draft body could not be AI-verified and was saved unverified. It will be verified again if sent.";
 		}
-		processedBody = sanitized;
 	}
 
 	if (params.isPlainText) {
@@ -261,6 +281,7 @@ export async function toolDraftEmail(
 		draftId,
 		threadId: resolvedThreadId,
 		message: "Draft saved to Drafts folder. Review it and confirm to send.",
+		...(verifierWarning ? { warning: verifierWarning } : {}),
 		draft: {
 			to: params.to,
 			subject: params.subject,
@@ -281,7 +302,7 @@ export async function toolUpdateDraft(
 		bodyHtml?: string;
 	},
 ): Promise<
-	| { status: string; newDraftId: string; oldDraftId: string; message: string }
+	| { status: string; draftId: string; message: string }
 	| { error: string }
 > {
 	const stub = getMailboxStub(env, mailboxId);
@@ -291,8 +312,8 @@ export async function toolUpdateDraft(
 		return { error: "Draft not found" };
 	}
 
-	// Verify the body BEFORE deleting the old draft to prevent data loss
-	const newDraftId = crypto.randomUUID();
+	// Verify the body BEFORE writing so a verifier failure leaves the
+	// existing draft untouched.
 	const rawBody = params.bodyHtml ?? oldDraft.body ?? "";
 	const verifiedBody = await verifyDraft(env, rawBody);
 
@@ -300,27 +321,22 @@ export async function toolUpdateDraft(
 		return { error: "Draft verification failed — keeping existing draft unchanged. Please try again." };
 	}
 
-	await stub.deleteEmail(params.draftId);
-	await stub.createEmail(
-		Folders.DRAFT,
-		{
-			id: newDraftId,
-			subject: params.subject ?? oldDraft.subject,
-			sender: mailboxId.toLowerCase(),
-			recipient: (params.to ?? oldDraft.recipient).toLowerCase(),
-			date: new Date().toISOString(),
-			body: verifiedBody,
-			in_reply_to: oldDraft.in_reply_to || null,
-			email_references: oldDraft.email_references || null,
-			thread_id: oldDraft.thread_id || newDraftId,
-		},
-		[],
-	);
+	// Update in place so the draft keeps a stable ID. Callers (agents and
+	// the composer UI) hold on to the draft ID across edits; replacing the
+	// row with a fresh UUID used to orphan that reference.
+	const updated = (await stub.updateEmail(params.draftId, {
+		subject: params.subject ?? oldDraft.subject,
+		body: verifiedBody,
+		recipient: (params.to ?? oldDraft.recipient).toLowerCase(),
+	})) as EmailFull | null;
+
+	if (!updated) {
+		return { error: "Draft not found" };
+	}
 
 	return {
 		status: "draft_updated",
-		newDraftId,
-		oldDraftId: params.draftId,
+		draftId: params.draftId,
 		message: "Draft updated in Drafts folder.",
 	};
 }
@@ -334,7 +350,12 @@ export async function toolMarkEmailRead(
 	read: boolean,
 ) {
 	const stub = getMailboxStub(env, mailboxId);
-	await stub.updateEmail(emailId, { read });
+	// The DO returns the updated email, or null when the ID does not exist.
+	// Reporting success for a missing email used to make this a silent no-op.
+	const updated = await stub.updateEmail(emailId, { read });
+	if (!updated) {
+		return { error: "Email not found", emailId };
+	}
 	return { status: "updated", emailId, read };
 }
 
@@ -347,11 +368,17 @@ export async function toolMoveEmail(
 	folderId: string,
 ) {
 	const stub = getMailboxStub(env, mailboxId);
+	// Distinguish a missing email from a missing target folder: the DO's
+	// UPDATE matches zero rows for a nonexistent ID and used to report success.
+	const email = await stub.getEmail(emailId);
+	if (!email) {
+		return { error: "Email not found", emailId };
+	}
 	const success = await stub.moveEmail(emailId, folderId);
 	if (success) {
 		return { status: "moved", emailId, folder: folderId };
 	}
-	return { error: "Failed to move email" };
+	return { error: "Failed to move email", emailId, folderId };
 }
 
 // ── discard_draft ──────────────────────────────────────────────────
