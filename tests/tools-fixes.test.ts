@@ -53,7 +53,7 @@ const {
 	toolSearchEmails,
 	toolUpdateDraft,
 } = await import("../workers/lib/tools");
-const { verifyDraft, verifyDraftDetailed } = await import("../workers/lib/ai");
+const { verifyDraft, verifyDraftDetailed, isPromptInjection } = await import("../workers/lib/ai");
 
 const env = {} as never;
 const mailboxId = "mail@example.com";
@@ -268,6 +268,20 @@ describe("toolDraftReply verifier resilience", () => {
 		});
 
 		expect(result).toMatchObject({ status: "draft_saved" });
+		expect(mockGenerateForRole).not.toHaveBeenCalled();
+	});
+});
+
+describe("isPromptInjection bounded scan", () => {
+	it("falls back to fail-safe (treat as injection) when the scanner hangs past the timeout", async () => {
+		mockGenerateForRole.mockReturnValue(new Promise(() => {}));
+		const body = "<p>Please review the attached quarterly report and share your feedback.</p>";
+		await expect(isPromptInjection(env, body, { timeoutMs: 20 })).resolves.toBe(true);
+	}, 10_000);
+
+	it("skips the model entirely for empty bodies", async () => {
+		mockGenerateForRole.mockClear();
+		await expect(isPromptInjection(env, null)).resolves.toBe(false);
 		expect(mockGenerateForRole).not.toHaveBeenCalled();
 	});
 });
